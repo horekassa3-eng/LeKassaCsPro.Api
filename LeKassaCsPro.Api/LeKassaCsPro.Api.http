@@ -1,0 +1,25 @@
+@LeKassaCsPro.Api_HostAddress = https://localhost:7239
+
+GET {{LeKassaCsPro.Api_HostAddress}}/api/Auth/existe-utilisateur
+Accept: application/json
+
+###
+
+POST {{LeKassaCsPro.Api_HostAddress}}/api/Auth/creer-premier-admin
+Content-Type: application/json
+
+{
+  "nomComplet": "Diallo Cellou",
+  "nomUtilisateur": "administrateur",
+  "motDePasse": "1234"
+}
+
+###
+
+POST {{LeKassaCsPro.Api_HostAddress}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "nomUtilisateur": "administrateur",
+  "motDePasse": "1234"
+}
