@@ -59,6 +59,41 @@ public class AuthController : ControllerBase
         return Ok(CreerReponse(utilisateur));
     }
 
+    [HttpPost("creer-utilisateur")]
+    public async Task<ActionResult<LoginResponse>> CreerUtilisateurAsync(CreerUtilisateurRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NomComplet) ||
+            string.IsNullOrWhiteSpace(request.NomUtilisateur) ||
+            string.IsNullOrWhiteSpace(request.MotDePasse) ||
+            string.IsNullOrWhiteSpace(request.Role))
+        {
+            return BadRequest("Veuillez remplir tous les champs.");
+        }
+
+        var nomUtilisateur = request.NomUtilisateur.Trim().ToLower();
+
+        var existeDeja = await _context.Utilisateurs
+            .AnyAsync(u => u.NomUtilisateur.ToLower() == nomUtilisateur);
+
+        if (existeDeja)
+            return BadRequest("Ce nom utilisateur existe déjà.");
+
+        var utilisateur = new AppUtilisateur
+        {
+            NomComplet = request.NomComplet.Trim(),
+            NomUtilisateur = request.NomUtilisateur.Trim(),
+            MotDePasseHash = BCrypt.Net.BCrypt.HashPassword(request.MotDePasse),
+            Role = request.Role.Trim(),
+            IsActif = true,
+            DateCreation = DateTime.UtcNow
+        };
+
+        _context.Utilisateurs.Add(utilisateur);
+        await _context.SaveChangesAsync();
+
+        return Ok(CreerReponse(utilisateur));
+    }
+
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> LoginAsync(LoginRequest request)
     {
