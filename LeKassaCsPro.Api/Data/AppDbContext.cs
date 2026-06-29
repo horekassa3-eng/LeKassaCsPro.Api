@@ -29,6 +29,8 @@ public class AppDbContext : DbContext
     public DbSet<AppEpargneMouvement> EpargneMouvements => Set<AppEpargneMouvement>();
     public DbSet<AppDetteClientMouvement> DetteClientMouvements => Set<AppDetteClientMouvement>();
 
+    public DbSet<AppParametre> Parametres => Set<AppParametre>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -189,5 +191,12 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<AppDetteClientMouvement>()
             .HasIndex(m => m.Devise);
+
+        modelBuilder.Entity<AppParametre>()
+            .Property(p => p.Cle)
+            .HasMaxLength(120);
+
+        modelBuilder.Entity<AppParametre>()
+            .HasIndex(p => p.Cle);
     }
 }
