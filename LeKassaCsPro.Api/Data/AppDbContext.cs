@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<AppUtilisateur> Utilisateurs => Set<AppUtilisateur>();
+    public DbSet<AppFournisseur> Fournisseurs => Set<AppFournisseur>();
     public DbSet<AppTransfert> Transferts => Set<AppTransfert>();
     public DbSet<AppTauxChange> TauxChanges => Set<AppTauxChange>();
     public DbSet<AppFournisseurMouvement> FournisseurMouvements => Set<AppFournisseurMouvement>();
@@ -38,6 +39,22 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AppTransfert>()
             .Property(t => t.SensTransfert)
             .HasMaxLength(60);
+
+        modelBuilder.Entity<AppFournisseur>()
+            .Property(f => f.Nom)
+            .HasMaxLength(120);
+
+        modelBuilder.Entity<AppFournisseur>()
+            .Property(f => f.Telephone)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppFournisseur>()
+            .Property(f => f.Pays)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppFournisseur>()
+            .Property(f => f.Ville)
+            .HasMaxLength(80);
 
         modelBuilder.Entity<AppTransfert>()
             .Property(t => t.Statut)
