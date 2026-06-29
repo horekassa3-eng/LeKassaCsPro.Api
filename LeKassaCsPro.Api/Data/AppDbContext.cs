@@ -15,15 +15,19 @@ public class AppDbContext : DbContext
     public DbSet<AppTransfert> Transferts => Set<AppTransfert>();
     public DbSet<AppTauxChange> TauxChanges => Set<AppTauxChange>();
     public DbSet<AppFournisseurMouvement> FournisseurMouvements => Set<AppFournisseurMouvement>();
+
     public DbSet<AppProduitVente> ProduitsVente => Set<AppProduitVente>();
     public DbSet<AppStockMouvement> StockMouvements => Set<AppStockMouvement>();
     public DbSet<AppVente> Ventes => Set<AppVente>();
     public DbSet<AppVenteDetail> VenteDetails => Set<AppVenteDetail>();
+
     public DbSet<AppDepense> Depenses => Set<AppDepense>();
     public DbSet<AppRecetteService> RecettesServices => Set<AppRecetteService>();
     public DbSet<AppBudgetMouvement> BudgetMouvements => Set<AppBudgetMouvement>();
+
     public DbSet<AppClient> Clients => Set<AppClient>();
     public DbSet<AppEpargneMouvement> EpargneMouvements => Set<AppEpargneMouvement>();
+    public DbSet<AppDetteClientMouvement> DetteClientMouvements => Set<AppDetteClientMouvement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -49,6 +53,10 @@ public class AppDbContext : DbContext
             .Property(t => t.SensTransfert)
             .HasMaxLength(60);
 
+        modelBuilder.Entity<AppTransfert>()
+            .Property(t => t.Statut)
+            .HasMaxLength(30);
+
         modelBuilder.Entity<AppFournisseur>()
             .Property(f => f.Nom)
             .HasMaxLength(120);
@@ -64,10 +72,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AppFournisseur>()
             .Property(f => f.Ville)
             .HasMaxLength(80);
-
-        modelBuilder.Entity<AppTransfert>()
-            .Property(t => t.Statut)
-            .HasMaxLength(30);
 
         modelBuilder.Entity<AppFournisseurMouvement>()
             .Property(m => m.Devise)
@@ -160,5 +164,30 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AppEpargneMouvement>()
             .Property(m => m.ClientTelephone)
             .HasMaxLength(40);
+
+        modelBuilder.Entity<AppDetteClientMouvement>()
+            .Property(m => m.TypeMouvement)
+            .HasMaxLength(30);
+
+        modelBuilder.Entity<AppDetteClientMouvement>()
+            .Property(m => m.Devise)
+            .HasMaxLength(10);
+
+        modelBuilder.Entity<AppDetteClientMouvement>()
+            .Property(m => m.ClientNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppDetteClientMouvement>()
+            .Property(m => m.ClientTelephone)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppDetteClientMouvement>()
+            .HasIndex(m => new { m.IsActive, m.DateMouvement });
+
+        modelBuilder.Entity<AppDetteClientMouvement>()
+            .HasIndex(m => m.ClientId);
+
+        modelBuilder.Entity<AppDetteClientMouvement>()
+            .HasIndex(m => m.Devise);
     }
 }
