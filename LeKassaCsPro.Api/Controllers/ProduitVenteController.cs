@@ -27,6 +27,74 @@ public class ProduitVenteController(AppDbContext context) : ControllerBase
         return Ok(stock);
     }
 
+    [HttpPost]
+    public async Task<ActionResult<AppProduitVente>> SaveAsync([FromBody] AppProduitVente request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Nom))
+            return BadRequest("Le nom du produit est obligatoire.");
+
+        if (request.PrixAchat <= 0)
+            return BadRequest("Le prix d'achat est obligatoire.");
+
+        if (request.PrixVente <= 0)
+            return BadRequest("Le prix de vente est obligatoire.");
+
+        if (request.PrixVente <= request.PrixAchat)
+            return BadRequest("Le prix de vente doit être supérieur au prix d'achat.");
+
+        if (request.Id == 0)
+        {
+            request.DateCreation = DateTime.UtcNow;
+            request.DateModification = DateTime.UtcNow;
+            request.IsActive = true;
+
+            context.ProduitsVente.Add(request);
+            await context.SaveChangesAsync();
+
+            return Ok(request);
+        }
+
+        var produit = await context.ProduitsVente
+            .FirstOrDefaultAsync(p => p.Id == request.Id);
+
+        if (produit == null)
+            return NotFound();
+
+        produit.Nom = request.Nom;
+        produit.Categorie = request.Categorie;
+        produit.CodeProduit = request.CodeProduit;
+        produit.Unite = request.Unite;
+        produit.PrixAchat = request.PrixAchat;
+        produit.PrixVente = request.PrixVente;
+        produit.StockAlerte = request.StockAlerte;
+        produit.IsActive = true;
+        produit.UtilisateurId = request.UtilisateurId;
+        produit.UtilisateurNom = request.UtilisateurNom;
+        produit.RoleUtilisateur = request.RoleUtilisateur;
+        produit.DateModification = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        return Ok(produit);
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteAsync(int id)
+    {
+        var produit = await context.ProduitsVente
+            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
+
+        if (produit == null)
+            return NotFound();
+
+        produit.IsActive = false;
+        produit.DateModification = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     private async Task<decimal> GetStockProduitAsync(int produitVenteId)
     {
         var mouvements = await context.StockMouvements
