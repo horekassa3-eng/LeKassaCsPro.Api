@@ -134,6 +134,10 @@ public class AppDbContext : DbContext
             .HasMaxLength(40);
 
         modelBuilder.Entity<AppClient>()
+            .Property(c => c.TypeClient)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppClient>()
             .Property(c => c.Pays)
             .HasMaxLength(60);
 

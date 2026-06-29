@@ -7,6 +7,11 @@ public class AppClient
     public string NomComplet { get; set; } = string.Empty;
     public string Telephone { get; set; } = string.Empty;
     public string Adresse { get; set; } = string.Empty;
+    public string TypeClient { get; set; } = "Normal";
+
+    public decimal DetteFcfa { get; set; }
+    public decimal DetteGnf { get; set; }
+
     public string Pays { get; set; } = string.Empty;
     public string Ville { get; set; } = string.Empty;
     public string Observation { get; set; } = string.Empty;
