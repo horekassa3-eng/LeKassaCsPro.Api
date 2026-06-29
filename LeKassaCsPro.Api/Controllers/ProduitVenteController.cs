@@ -28,34 +28,24 @@ public class ProduitVenteController(AppDbContext context) : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<AppProduitVente>> SaveAsync([FromBody] AppProduitVente request)
+    public async Task<ActionResult<AppProduitVente>> SaveAsync([FromBody] AppProduitVente produit)
     {
-        if (string.IsNullOrWhiteSpace(request.Nom))
-            return BadRequest("Le nom du produit est obligatoire.");
+        produit.Id = 0;
+        produit.DateCreation = DateTime.UtcNow;
+        produit.DateModification = DateTime.UtcNow;
+        produit.IsActive = true;
 
-        if (request.PrixAchat <= 0)
-            return BadRequest("Le prix d'achat est obligatoire.");
+        context.ProduitsVente.Add(produit);
+        await context.SaveChangesAsync();
 
-        if (request.PrixVente <= 0)
-            return BadRequest("Le prix de vente est obligatoire.");
+        return Ok(produit);
+    }
 
-        if (request.PrixVente <= request.PrixAchat)
-            return BadRequest("Le prix de vente doit être supérieur au prix d'achat.");
-
-        if (request.Id == 0)
-        {
-            request.DateCreation = DateTime.UtcNow;
-            request.DateModification = DateTime.UtcNow;
-            request.IsActive = true;
-
-            context.ProduitsVente.Add(request);
-            await context.SaveChangesAsync();
-
-            return Ok(request);
-        }
-
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<AppProduitVente>> UpdateAsync(int id, [FromBody] AppProduitVente request)
+    {
         var produit = await context.ProduitsVente
-            .FirstOrDefaultAsync(p => p.Id == request.Id);
+            .FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
 
         if (produit == null)
             return NotFound();
@@ -67,7 +57,6 @@ public class ProduitVenteController(AppDbContext context) : ControllerBase
         produit.PrixAchat = request.PrixAchat;
         produit.PrixVente = request.PrixVente;
         produit.StockAlerte = request.StockAlerte;
-        produit.IsActive = true;
         produit.UtilisateurId = request.UtilisateurId;
         produit.UtilisateurNom = request.UtilisateurNom;
         produit.RoleUtilisateur = request.RoleUtilisateur;
@@ -87,8 +76,24 @@ public class ProduitVenteController(AppDbContext context) : ControllerBase
         if (produit == null)
             return NotFound();
 
+        var produitUtilise = await context.VenteDetails
+            .AnyAsync(d => d.IsActive && d.ProduitVenteId == id);
+
+        if (produitUtilise)
+            return BadRequest("Ce produit est déjà utilisé dans une vente. Il ne peut pas être supprimé.");
+
         produit.IsActive = false;
         produit.DateModification = DateTime.UtcNow;
+
+        var mouvements = await context.StockMouvements
+            .Where(m => m.IsActive && m.ProduitVenteId == id)
+            .ToListAsync();
+
+        foreach (var mouvement in mouvements)
+        {
+            mouvement.IsActive = false;
+            mouvement.DateModification = DateTime.UtcNow;
+        }
 
         await context.SaveChangesAsync();
 

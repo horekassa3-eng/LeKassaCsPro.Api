@@ -9,6 +9,46 @@ namespace LeKassaCsPro.Api.Controllers;
 [Route("api/[controller]")]
 public class VenteController(AppDbContext context) : ControllerBase
 {
+    [HttpGet]
+    public async Task<ActionResult<List<AppVente>>> GetAsync()
+    {
+        var ventes = await context.Ventes
+            .Where(v => v.IsActive)
+            .OrderByDescending(v => v.DateVente)
+            .ToListAsync();
+
+        return Ok(ventes);
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<AppVente>> GetByIdAsync(int id)
+    {
+        var vente = await context.Ventes
+            .FirstOrDefaultAsync(v => v.Id == id && v.IsActive);
+
+        if (vente == null)
+            return NotFound();
+
+        return Ok(vente);
+    }
+
+    [HttpGet("{id:int}/details")]
+    public async Task<ActionResult<List<AppVenteDetail>>> GetDetailsAsync(int id)
+    {
+        var venteExiste = await context.Ventes
+            .AnyAsync(v => v.Id == id && v.IsActive);
+
+        if (!venteExiste)
+            return NotFound();
+
+        var details = await context.VenteDetails
+            .Where(d => d.IsActive && d.VenteId == id)
+            .OrderBy(d => d.Id)
+            .ToListAsync();
+
+        return Ok(details);
+    }
+
     [HttpPost("avec-details")]
     public async Task<ActionResult<AppVente>> SaveAvecDetailsAsync([FromBody] VenteAvecDetailsRequest request)
     {
@@ -96,6 +136,74 @@ public class VenteController(AppDbContext context) : ControllerBase
         await transaction.CommitAsync();
 
         return Ok(request.Vente);
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<AppVente>> UpdateAsync(int id, [FromBody] AppVente request)
+    {
+        var vente = await context.Ventes
+            .FirstOrDefaultAsync(v => v.Id == id && v.IsActive);
+
+        if (vente == null)
+            return NotFound();
+
+        vente.ClientId = request.ClientId;
+        vente.NomClient = request.NomClient;
+        vente.TelephoneClient = request.TelephoneClient;
+        vente.ModePaiement = request.ModePaiement;
+        vente.MontantTotal = request.MontantTotal;
+        vente.MontantPaye = request.MontantPaye;
+        vente.Remise = request.Remise;
+        vente.Observation = request.Observation;
+        vente.StatutPaiement = GetStatutPaiement(vente.MontantTotal, vente.MontantPaye);
+        vente.DateModification = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        return Ok(vente);
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteAsync(int id)
+    {
+        var vente = await context.Ventes
+            .FirstOrDefaultAsync(v => v.Id == id && v.IsActive);
+
+        if (vente == null)
+            return NotFound();
+
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
+        vente.IsActive = false;
+        vente.StatutPaiement = "Annulé";
+        vente.DateModification = DateTime.UtcNow;
+
+        var details = await context.VenteDetails
+            .Where(d => d.IsActive && d.VenteId == id)
+            .ToListAsync();
+
+        foreach (var detail in details)
+        {
+            detail.IsActive = false;
+            detail.DateModification = DateTime.UtcNow;
+        }
+
+        var mouvementsStock = await context.StockMouvements
+            .Where(m => m.IsActive
+                        && m.SourceModule == "Vente"
+                        && m.SourceId == id)
+            .ToListAsync();
+
+        foreach (var mouvement in mouvementsStock)
+        {
+            mouvement.IsActive = false;
+            mouvement.DateModification = DateTime.UtcNow;
+        }
+
+        await context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return NoContent();
     }
 
     private async Task<decimal> GetStockProduitAsync(int produitVenteId)
