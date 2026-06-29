@@ -34,13 +34,23 @@ public class TauxChangeController(AppDbContext context) : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<AppTauxChange>> SaveAsync(AppTauxChange request)
+    public async Task<ActionResult<AppTauxChange>> SaveAsync([FromBody] AppTauxChange request)
     {
         if (request.MontantReferenceFcfa <= 0 || request.MontantEquivalentGnf <= 0)
             return BadRequest("Le montant référence et le montant équivalent sont obligatoires.");
 
+        request.DateTaux = NormaliserDateUtc(request.DateTaux);
         request.TauxGnfParFcfa = request.MontantEquivalentGnf / request.MontantReferenceFcfa;
         request.IsActive = true;
+
+        if (request.FraisServiceSnGnPourcentage < 0)
+            request.FraisServiceSnGnPourcentage = 0;
+
+        if (request.FraisServiceGnSnPourcentage < 0)
+            request.FraisServiceGnSnPourcentage = 0;
+
+        if (request.FraisFournisseurPour5000Fcfa < 0)
+            request.FraisFournisseurPour5000Fcfa = 0;
 
         if (request.IsActif)
             await DesactiverAutresTauxAsync(request.Id);
@@ -86,7 +96,6 @@ public class TauxChangeController(AppDbContext context) : ControllerBase
         await DesactiverAutresTauxAsync(id);
 
         taux.IsActif = true;
-
         await context.SaveChangesAsync();
 
         return Ok(taux);
@@ -117,5 +126,13 @@ public class TauxChangeController(AppDbContext context) : ControllerBase
 
         foreach (var ancien in anciens)
             ancien.IsActif = false;
+    }
+
+    private static DateTime NormaliserDateUtc(DateTime date)
+    {
+        if (date == default)
+            date = DateTime.UtcNow;
+
+        return DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
     }
 }
