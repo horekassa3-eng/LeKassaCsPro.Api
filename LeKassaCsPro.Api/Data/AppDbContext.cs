@@ -29,6 +29,10 @@ public class AppDbContext : DbContext
     public DbSet<AppEpargneMouvement> EpargneMouvements => Set<AppEpargneMouvement>();
     public DbSet<AppDetteClientMouvement> DetteClientMouvements => Set<AppDetteClientMouvement>();
 
+    public DbSet<AppBoutique> Boutiques => Set<AppBoutique>();
+    public DbSet<AppBoutiqueInventaire> BoutiqueInventaires => Set<AppBoutiqueInventaire>();
+    public DbSet<AppBoutiqueBudgetMouvement> BoutiqueBudgetMouvements => Set<AppBoutiqueBudgetMouvement>();
+
     public DbSet<AppParametre> Parametres => Set<AppParametre>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -198,5 +202,46 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<AppParametre>()
             .HasIndex(p => p.Cle);
+        modelBuilder.Entity<AppBoutique>()
+    .Property(b => b.Nom)
+    .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutique>()
+            .Property(b => b.GerantNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutique>()
+            .Property(b => b.AssistantNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutique>()
+            .Property(b => b.Pays)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppBoutique>()
+            .Property(b => b.Ville)
+            .HasMaxLength(80);
+
+        modelBuilder.Entity<AppBoutique>()
+            .HasIndex(b => new { b.IsActive, b.Nom });
+
+        modelBuilder.Entity<AppBoutiqueInventaire>()
+            .Property(i => i.BoutiqueNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutiqueInventaire>()
+            .HasIndex(i => new { i.BoutiqueId, i.IsActive, i.DateInventaire });
+
+        modelBuilder.Entity<AppBoutiqueBudgetMouvement>()
+            .Property(m => m.BoutiqueNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutiqueBudgetMouvement>()
+            .Property(m => m.TypeMouvement)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppBoutiqueBudgetMouvement>()
+            .HasIndex(m => new { m.BoutiqueId, m.IsActive, m.DateMouvement });
+
     }
 }
