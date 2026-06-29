@@ -11,6 +11,9 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<AppUtilisateur> Utilisateurs => Set<AppUtilisateur>();
+    public DbSet<AppTransfert> Transferts => Set<AppTransfert>();
+    public DbSet<AppTauxChange> TauxChanges => Set<AppTauxChange>();
+    public DbSet<AppFournisseurMouvement> FournisseurMouvements => Set<AppFournisseurMouvement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,5 +34,21 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AppUtilisateur>()
             .Property(u => u.Role)
             .HasMaxLength(30);
+
+        modelBuilder.Entity<AppTransfert>()
+            .Property(t => t.SensTransfert)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppTransfert>()
+            .Property(t => t.Statut)
+            .HasMaxLength(30);
+
+        modelBuilder.Entity<AppFournisseurMouvement>()
+            .Property(m => m.Devise)
+            .HasMaxLength(10);
+
+        modelBuilder.Entity<AppFournisseurMouvement>()
+            .Property(m => m.TypeMouvement)
+            .HasMaxLength(60);
     }
 }
