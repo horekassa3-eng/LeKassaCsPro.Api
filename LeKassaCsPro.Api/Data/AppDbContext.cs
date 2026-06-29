@@ -22,6 +22,8 @@ public class AppDbContext : DbContext
     public DbSet<AppDepense> Depenses => Set<AppDepense>();
     public DbSet<AppRecetteService> RecettesServices => Set<AppRecetteService>();
     public DbSet<AppBudgetMouvement> BudgetMouvements => Set<AppBudgetMouvement>();
+    public DbSet<AppClient> Clients => Set<AppClient>();
+    public DbSet<AppEpargneMouvement> EpargneMouvements => Set<AppEpargneMouvement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -122,5 +124,37 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AppBudgetMouvement>()
             .Property(m => m.SourceModule)
             .HasMaxLength(80);
+
+        modelBuilder.Entity<AppClient>()
+            .Property(c => c.NomComplet)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppClient>()
+            .Property(c => c.Telephone)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppClient>()
+            .Property(c => c.Pays)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppClient>()
+            .Property(c => c.Ville)
+            .HasMaxLength(80);
+
+        modelBuilder.Entity<AppEpargneMouvement>()
+            .Property(m => m.TypeMouvement)
+            .HasMaxLength(30);
+
+        modelBuilder.Entity<AppEpargneMouvement>()
+            .Property(m => m.Devise)
+            .HasMaxLength(10);
+
+        modelBuilder.Entity<AppEpargneMouvement>()
+            .Property(m => m.ClientNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppEpargneMouvement>()
+            .Property(m => m.ClientTelephone)
+            .HasMaxLength(40);
     }
 }
