@@ -20,6 +20,7 @@ public class AppDbContext : DbContext
     public DbSet<AppVente> Ventes => Set<AppVente>();
     public DbSet<AppVenteDetail> VenteDetails => Set<AppVenteDetail>();
     public DbSet<AppDepense> Depenses => Set<AppDepense>();
+    public DbSet<AppRecetteService> RecettesServices => Set<AppRecetteService>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -100,5 +101,13 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AppDepense>()
             .Property(d => d.ModePaiement)
             .HasMaxLength(80);
+
+        modelBuilder.Entity<AppRecetteService>()
+            .Property(r => r.TypeService)
+            .HasMaxLength(120);
+
+        modelBuilder.Entity<AppRecetteService>()
+            .Property(r => r.Devise)
+            .HasMaxLength(10);
     }
 }
