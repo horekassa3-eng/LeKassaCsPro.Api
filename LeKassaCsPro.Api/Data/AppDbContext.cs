@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<AppVenteDetail> VenteDetails => Set<AppVenteDetail>();
     public DbSet<AppDepense> Depenses => Set<AppDepense>();
     public DbSet<AppRecetteService> RecettesServices => Set<AppRecetteService>();
+    public DbSet<AppBudgetMouvement> BudgetMouvements => Set<AppBudgetMouvement>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -109,5 +110,17 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AppRecetteService>()
             .Property(r => r.Devise)
             .HasMaxLength(10);
+
+        modelBuilder.Entity<AppBudgetMouvement>()
+            .Property(m => m.TypeMouvement)
+            .HasMaxLength(30);
+
+        modelBuilder.Entity<AppBudgetMouvement>()
+            .Property(m => m.Devise)
+            .HasMaxLength(10);
+
+        modelBuilder.Entity<AppBudgetMouvement>()
+            .Property(m => m.SourceModule)
+            .HasMaxLength(80);
     }
 }
