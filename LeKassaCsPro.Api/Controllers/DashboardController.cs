@@ -42,7 +42,7 @@ public class DashboardController : ControllerBase
                 .Where(t => EstSensGuineeVersSenegal(t.SensTransfert))
                 .Sum(t => t.MontantFcfaBeneficiaire);
 
-        var soldeFcfa = await GetSoldeFournisseursTotalAsync(DeviseFcfa);
+        var soldeFcfa = await GetSoldeFcfaDashboardAsync();
         var soldeGnf = await CalculerSoldeGnfDashboardAsync(soldeFcfa);
 
         return Ok(new DashboardResumeResponse
@@ -56,7 +56,7 @@ public class DashboardController : ControllerBase
 
     private async Task<decimal> CalculerSoldeGnfDashboardAsync(decimal soldeFcfa)
     {
-        var soldeGnfDirect = await GetSoldeFournisseursTotalAsync(DeviseGnf);
+        var soldeGnfDirect = await GetSoldeFournisseursHorsTransfertsAsync(DeviseGnf);
 
         if (soldeGnfDirect > 0)
             return soldeGnfDirect;
@@ -72,10 +72,29 @@ public class DashboardController : ControllerBase
         return soldeFcfa * tauxActif.TauxGnfParFcfa;
     }
 
-    private async Task<decimal> GetSoldeFournisseursTotalAsync(string devise)
+    private async Task<decimal> GetSoldeFcfaDashboardAsync()
+    {
+        var soldeMouvementsManuels = await GetSoldeFournisseursHorsTransfertsAsync(DeviseFcfa);
+
+        var transfertsPayes = await _context.Transferts
+            .Where(t => t.IsActive && (t.Statut == "Payé" || t.Statut == "Paye"))
+            .ToListAsync();
+
+        var entreesGuineeSenegal = transfertsPayes
+            .Where(t => EstSensGuineeVersSenegal(t.SensTransfert))
+            .Sum(t => t.MontantFcfaBeneficiaire);
+
+        var sortiesSenegalGuinee = transfertsPayes
+            .Where(t => EstSensSenegalVersGuinee(t.SensTransfert))
+            .Sum(t => t.FcfaDonneFournisseur > 0 ? t.FcfaDonneFournisseur : GetMontantEnvoyeFcfa(t));
+
+        return soldeMouvementsManuels + entreesGuineeSenegal - sortiesSenegalGuinee;
+    }
+
+    private async Task<decimal> GetSoldeFournisseursHorsTransfertsAsync(string devise)
     {
         var mouvements = await _context.FournisseurMouvements
-            .Where(m => m.IsActive && m.Devise == devise)
+            .Where(m => m.IsActive && m.Devise == devise && m.TransfertId == 0)
             .ToListAsync();
 
         var entrees = mouvements
@@ -128,7 +147,10 @@ public class DashboardController : ControllerBase
 
         return sens.Contains("Sénégal vers Guinée", StringComparison.OrdinalIgnoreCase)
                || sens.Contains("Senegal vers Guinee", StringComparison.OrdinalIgnoreCase)
-               || sens.Contains("SN", StringComparison.OrdinalIgnoreCase);
+               || sens.StartsWith("Sénégal", StringComparison.OrdinalIgnoreCase)
+               || sens.StartsWith("Senegal", StringComparison.OrdinalIgnoreCase)
+               || sens.Contains("SN → GN", StringComparison.OrdinalIgnoreCase)
+               || sens.Contains("SN->GN", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool EstSensGuineeVersSenegal(string? sens)
@@ -138,6 +160,9 @@ public class DashboardController : ControllerBase
 
         return sens.Contains("Guinée vers Sénégal", StringComparison.OrdinalIgnoreCase)
                || sens.Contains("Guinee vers Senegal", StringComparison.OrdinalIgnoreCase)
-               || sens.Contains("GN", StringComparison.OrdinalIgnoreCase);
+               || sens.StartsWith("Guinée", StringComparison.OrdinalIgnoreCase)
+               || sens.StartsWith("Guinee", StringComparison.OrdinalIgnoreCase)
+               || sens.Contains("GN → SN", StringComparison.OrdinalIgnoreCase)
+               || sens.Contains("GN->SN", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -125,8 +125,27 @@ public class TransfertController(AppDbContext context) : ControllerBase
 
     private async Task<decimal> GetSoldeFournisseursTotalAsync()
     {
+        var soldeMouvementsManuels = await GetSoldeFournisseursHorsTransfertsAsync();
+
+        var transfertsPayes = await context.Transferts
+            .Where(t => t.IsActive && (t.Statut == "Payé" || t.Statut == "Paye"))
+            .ToListAsync();
+
+        var entreesGuineeSenegal = transfertsPayes
+            .Where(t => EstSensGuineeVersSenegal(t.SensTransfert))
+            .Sum(t => t.MontantFcfaBeneficiaire);
+
+        var sortiesSenegalGuinee = transfertsPayes
+            .Where(t => EstSensSenegalVersGuinee(t.SensTransfert))
+            .Sum(t => t.FcfaDonneFournisseur > 0 ? t.FcfaDonneFournisseur : t.TotalAPayerFcfa);
+
+        return soldeMouvementsManuels + entreesGuineeSenegal - sortiesSenegalGuinee;
+    }
+
+    private async Task<decimal> GetSoldeFournisseursHorsTransfertsAsync()
+    {
         var mouvements = await context.FournisseurMouvements
-            .Where(m => m.IsActive && m.Devise == DeviseFcfa)
+            .Where(m => m.IsActive && m.Devise == DeviseFcfa && m.TransfertId == 0)
             .ToListAsync();
 
         var entrees = mouvements
