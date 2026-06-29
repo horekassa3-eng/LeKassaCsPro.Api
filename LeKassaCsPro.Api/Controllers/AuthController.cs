@@ -30,6 +30,24 @@ public class AuthController : ControllerBase
         return await _context.Utilisateurs.AnyAsync();
     }
 
+    [HttpGet("utilisateurs")]
+    public async Task<ActionResult<List<LoginResponse>>> GetUtilisateursAsync()
+    {
+        var utilisateurs = await _context.Utilisateurs
+            .OrderBy(u => u.NomComplet)
+            .Select(u => new LoginResponse
+            {
+                Id = u.Id,
+                NomComplet = u.NomComplet,
+                NomUtilisateur = u.NomUtilisateur,
+                Role = u.Role,
+                Token = string.Empty
+            })
+            .ToListAsync();
+
+        return Ok(utilisateurs);
+    }
+
     [HttpPost("creer-premier-admin")]
     public async Task<ActionResult<LoginResponse>> CreerPremierAdminAsync(CreerPremierAdminRequest request)
     {
