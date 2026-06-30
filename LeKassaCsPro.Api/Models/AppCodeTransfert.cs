@@ -25,22 +25,17 @@ public class AppCodeTransfert
     public DateTime DateEnvoi { get; set; }
     public DateTime? DateRetrait { get; set; }
 
-    public string NomRetireur { get; set; } = string.Empty;
-    public string TelephoneRetireur { get; set; } = string.Empty;
-    public string PieceIdentite { get; set; } = string.Empty;
-
     public string Observation { get; set; } = string.Empty;
-    public string ObservationRetrait { get; set; } = string.Empty;
 
     public bool IsActive { get; set; } = true;
 
-    public int UtilisateurId { get; set; }
-    public string UtilisateurNom { get; set; } = string.Empty;
-    public string RoleUtilisateur { get; set; } = string.Empty;
+    public int UtilisateurEnvoiId { get; set; }
+    public string UtilisateurEnvoiNom { get; set; } = string.Empty;
+    public string RoleUtilisateurEnvoi { get; set; } = string.Empty;
 
-    public int RetraitUtilisateurId { get; set; }
-    public string RetraitUtilisateurNom { get; set; } = string.Empty;
-    public string RetraitRoleUtilisateur { get; set; } = string.Empty;
+    public int UtilisateurRetraitId { get; set; }
+    public string UtilisateurRetraitNom { get; set; } = string.Empty;
+    public string RoleUtilisateurRetrait { get; set; } = string.Empty;
 
     public DateTime? DateCreation { get; set; }
     public DateTime? DateModification { get; set; }

@@ -13,7 +13,6 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
     public async Task<ActionResult<List<AppSoldeAgenceMouvement>>> GetAllAsync()
     {
         var mouvements = await context.SoldeAgenceMouvements
-            .AsNoTracking()
             .Where(m => m.IsActive)
             .OrderByDescending(m => m.DateMouvement)
             .ToListAsync();
@@ -21,62 +20,59 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
         return Ok(mouvements);
     }
 
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<AppSoldeAgenceMouvement>> GetByIdAsync(int id)
+    [HttpGet("pays/{paysAgence}")]
+    public async Task<ActionResult<List<AppSoldeAgenceMouvement>>> GetByPaysAsync(string paysAgence)
     {
-        var mouvement = await context.SoldeAgenceMouvements
-            .AsNoTracking()
-            .FirstOrDefaultAsync(m => m.Id == id && m.IsActive);
+        var mouvements = await context.SoldeAgenceMouvements
+            .Where(m => m.IsActive && m.PaysAgence.ToLower() == paysAgence.Trim().ToLower())
+            .OrderByDescending(m => m.DateMouvement)
+            .ToListAsync();
 
-        if (mouvement == null)
-            return NotFound();
-
-        return Ok(mouvement);
+        return Ok(mouvements);
     }
 
     [HttpGet("solde")]
     public async Task<ActionResult<decimal>> GetSoldeAsync(
-        [FromQuery] string? pays,
-        [FromQuery] string? moyen,
-        [FromQuery] string? devise)
+        [FromQuery] string paysAgence,
+        [FromQuery] string moyenPaiement,
+        [FromQuery] string devise)
     {
+        paysAgence = paysAgence?.Trim() ?? string.Empty;
+        moyenPaiement = moyenPaiement?.Trim() ?? string.Empty;
+        devise = devise?.Trim() ?? string.Empty;
+
         var mouvements = await context.SoldeAgenceMouvements
-            .AsNoTracking()
-            .Where(m => m.IsActive)
+            .Where(m => m.IsActive
+                        && m.PaysAgence.ToLower() == paysAgence.ToLower()
+                        && m.MoyenPaiement.ToLower() == moyenPaiement.ToLower()
+                        && m.Devise.ToLower() == devise.ToLower())
             .ToListAsync();
 
-        var total = mouvements
-            .Where(m => Correspond(m.PaysAgence, pays)
-                        && Correspond(m.MoyenPaiement, moyen)
-                        && Correspond(m.Devise, devise))
-            .Sum(CalculerImpact);
+        decimal solde = 0;
 
-        return Ok(total);
-    }
+        foreach (var mouvement in mouvements)
+        {
+            if (EstEntree(mouvement.TypeMouvement))
+                solde += mouvement.Montant;
+            else
+                solde -= mouvement.Montant;
+        }
 
-    [HttpGet("pays/{pays}")]
-    public async Task<ActionResult<List<AppSoldeAgenceMouvement>>> GetByPaysAsync(string pays)
-    {
-        var mouvements = await context.SoldeAgenceMouvements
-            .AsNoTracking()
-            .Where(m => m.IsActive && m.PaysAgence.ToLower() == pays.Trim().ToLower())
-            .OrderByDescending(m => m.DateMouvement)
-            .ToListAsync();
-
-        return Ok(mouvements);
+        return Ok(solde);
     }
 
     [HttpPost]
-    public async Task<ActionResult<AppSoldeAgenceMouvement>> CreateAsync([FromBody] AppSoldeAgenceMouvement mouvement)
+    public async Task<ActionResult<AppSoldeAgenceMouvement>> CreateAsync(AppSoldeAgenceMouvement mouvement)
     {
-        if (mouvement == null)
-            return BadRequest("Données invalides.");
-
-        if (mouvement.Montant <= 0)
-            return BadRequest("Montant obligatoire.");
-
         mouvement.Id = 0;
-        Nettoyer(mouvement);
+        mouvement.PaysAgence = mouvement.PaysAgence?.Trim() ?? string.Empty;
+        mouvement.MoyenPaiement = string.IsNullOrWhiteSpace(mouvement.MoyenPaiement)
+            ? "Espèces"
+            : mouvement.MoyenPaiement.Trim();
+        mouvement.Devise = string.IsNullOrWhiteSpace(mouvement.Devise)
+            ? "FCFA"
+            : mouvement.Devise.Trim();
+        mouvement.TypeMouvement = mouvement.TypeMouvement?.Trim() ?? string.Empty;
         mouvement.DateMouvement = NormaliserDateUtc(mouvement.DateMouvement);
         mouvement.DateCreation = DateTime.UtcNow;
         mouvement.DateModification = DateTime.UtcNow;
@@ -85,42 +81,43 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
         context.SoldeAgenceMouvements.Add(mouvement);
         await context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetByIdAsync), new { id = mouvement.Id }, mouvement);
+        return Ok(mouvement);
     }
 
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<AppSoldeAgenceMouvement>> UpdateAsync(int id, [FromBody] AppSoldeAgenceMouvement mouvement)
+    public async Task<ActionResult<AppSoldeAgenceMouvement>> UpdateAsync(int id, AppSoldeAgenceMouvement request)
     {
-        if (mouvement == null || id <= 0)
-            return BadRequest("Données invalides.");
+        var mouvement = await context.SoldeAgenceMouvements
+            .FirstOrDefaultAsync(m => m.Id == id && m.IsActive);
 
-        var existant = await context.SoldeAgenceMouvements.FirstOrDefaultAsync(m => m.Id == id && m.IsActive);
-
-        if (existant == null)
+        if (mouvement == null)
             return NotFound();
 
-        existant.DateMouvement = NormaliserDateUtc(mouvement.DateMouvement == default ? existant.DateMouvement : mouvement.DateMouvement);
-        existant.PaysAgence = mouvement.PaysAgence?.Trim() ?? string.Empty;
-        existant.MoyenPaiement = string.IsNullOrWhiteSpace(mouvement.MoyenPaiement) ? "Espèces" : mouvement.MoyenPaiement.Trim();
-        existant.Devise = string.IsNullOrWhiteSpace(mouvement.Devise) ? "FCFA" : mouvement.Devise.Trim();
-        existant.TypeMouvement = mouvement.TypeMouvement?.Trim() ?? string.Empty;
-        existant.Montant = mouvement.Montant;
-        existant.Motif = mouvement.Motif?.Trim() ?? string.Empty;
-        existant.Observation = mouvement.Observation?.Trim() ?? string.Empty;
-        existant.UtilisateurId = mouvement.UtilisateurId;
-        existant.UtilisateurNom = mouvement.UtilisateurNom?.Trim() ?? string.Empty;
-        existant.RoleUtilisateur = mouvement.RoleUtilisateur?.Trim() ?? string.Empty;
-        existant.DateModification = DateTime.UtcNow;
+        mouvement.PaysAgence = request.PaysAgence?.Trim() ?? string.Empty;
+        mouvement.MoyenPaiement = request.MoyenPaiement?.Trim() ?? "Espèces";
+        mouvement.Devise = request.Devise?.Trim() ?? "FCFA";
+        mouvement.DateMouvement = NormaliserDateUtc(request.DateMouvement);
+        mouvement.TypeMouvement = request.TypeMouvement?.Trim() ?? string.Empty;
+        mouvement.Montant = request.Montant;
+        mouvement.Motif = request.Motif?.Trim() ?? string.Empty;
+        mouvement.Observation = request.Observation?.Trim() ?? string.Empty;
+        mouvement.SourceModule = request.SourceModule?.Trim() ?? string.Empty;
+        mouvement.SourceId = request.SourceId;
+        mouvement.UtilisateurId = request.UtilisateurId;
+        mouvement.UtilisateurNom = request.UtilisateurNom?.Trim() ?? string.Empty;
+        mouvement.RoleUtilisateur = request.RoleUtilisateur?.Trim() ?? string.Empty;
+        mouvement.DateModification = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
 
-        return Ok(existant);
+        return Ok(mouvement);
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteAsync(int id)
     {
-        var mouvement = await context.SoldeAgenceMouvements.FirstOrDefaultAsync(m => m.Id == id && m.IsActive);
+        var mouvement = await context.SoldeAgenceMouvements
+            .FirstOrDefaultAsync(m => m.Id == id && m.IsActive);
 
         if (mouvement == null)
             return NotFound();
@@ -133,61 +130,13 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
         return NoContent();
     }
 
-    private static void Nettoyer(AppSoldeAgenceMouvement mouvement)
+    private static bool EstEntree(string? type)
     {
-        mouvement.PaysAgence = mouvement.PaysAgence?.Trim() ?? string.Empty;
-        mouvement.MoyenPaiement = string.IsNullOrWhiteSpace(mouvement.MoyenPaiement) ? "Espèces" : mouvement.MoyenPaiement.Trim();
-        mouvement.Devise = string.IsNullOrWhiteSpace(mouvement.Devise) ? "FCFA" : mouvement.Devise.Trim();
-        mouvement.TypeMouvement = mouvement.TypeMouvement?.Trim() ?? string.Empty;
-        mouvement.Motif = mouvement.Motif?.Trim() ?? string.Empty;
-        mouvement.Observation = mouvement.Observation?.Trim() ?? string.Empty;
-        mouvement.UtilisateurNom = mouvement.UtilisateurNom?.Trim() ?? string.Empty;
-        mouvement.RoleUtilisateur = mouvement.RoleUtilisateur?.Trim() ?? string.Empty;
-    }
-
-    private static bool Correspond(string valeur, string? filtre)
-    {
-        if (string.IsNullOrWhiteSpace(filtre))
-            return true;
-
-        return string.Equals(
-            Normaliser(valeur),
-            Normaliser(filtre),
-            StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static decimal CalculerImpact(AppSoldeAgenceMouvement mouvement)
-    {
-        return EstSortie(mouvement.TypeMouvement)
-            ? -mouvement.Montant
-            : mouvement.Montant;
-    }
-
-    private static bool EstSortie(string? type)
-    {
-        var texte = Normaliser(type);
-
-        return texte.Contains("sortie")
-               || texte.Contains("retrait")
-               || texte.Contains("depense")
-               || texte.Contains("dépense")
-               || texte.Contains("annulation")
-               || texte.Contains("annule");
-    }
-
-    private static string Normaliser(string? valeur)
-    {
-        return (valeur ?? string.Empty)
-            .Trim()
-            .Replace("é", "e")
-            .Replace("è", "e")
-            .Replace("ê", "e")
-            .Replace("ë", "e")
-            .Replace("É", "e")
-            .Replace("È", "e")
-            .Replace("Ê", "e")
-            .Replace("Ë", "e")
-            .ToLowerInvariant();
+        return string.Equals(type, "Entrée", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(type, "Entree", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(type, "Approvisionnement", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(type, "Réception approvisionnement", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(type, "Reception approvisionnement", StringComparison.OrdinalIgnoreCase);
     }
 
     private static DateTime NormaliserDateUtc(DateTime date)
