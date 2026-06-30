@@ -10,15 +10,11 @@ public class AppBoutiqueInventaire
 
     public DateTime DateInventaire { get; set; }
 
-    public decimal BudgetInitial { get; set; }
-
-    public decimal MontantVente { get; set; }
-
-    public decimal DepenseProprietaire { get; set; }
-
-    public decimal SoldeCaisse { get; set; }
+    public decimal ValeurStock { get; set; }
 
     public decimal GainMois { get; set; }
+
+    public decimal DepenseProprietaireMois { get; set; }
 
     public string Observation { get; set; } = string.Empty;
 

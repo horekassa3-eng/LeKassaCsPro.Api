@@ -13,7 +13,6 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
     public async Task<ActionResult<List<AppBoutiqueInventaire>>> GetAllAsync()
     {
         var inventaires = await context.BoutiqueInventaires
-            .AsNoTracking()
             .Where(i => i.IsActive)
             .OrderByDescending(i => i.DateInventaire)
             .ThenByDescending(i => i.Id)
@@ -26,7 +25,6 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
     public async Task<ActionResult<AppBoutiqueInventaire>> GetByIdAsync(int id)
     {
         var inventaire = await context.BoutiqueInventaires
-            .AsNoTracking()
             .FirstOrDefaultAsync(i => i.Id == id && i.IsActive);
 
         if (inventaire == null)
@@ -39,7 +37,6 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
     public async Task<ActionResult<List<AppBoutiqueInventaire>>> GetByBoutiqueAsync(int boutiqueId)
     {
         var inventaires = await context.BoutiqueInventaires
-            .AsNoTracking()
             .Where(i => i.IsActive && i.BoutiqueId == boutiqueId)
             .OrderByDescending(i => i.DateInventaire)
             .ThenByDescending(i => i.Id)
@@ -48,15 +45,17 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
         return Ok(inventaires);
     }
 
-    [HttpGet("boutique/{boutiqueId:int}/dernier")]
-    public async Task<ActionResult<AppBoutiqueInventaire?>> GetDernierByBoutiqueAsync(int boutiqueId)
+    [HttpGet("dernier/{boutiqueId:int}")]
+    public async Task<ActionResult<AppBoutiqueInventaire?>> GetDernierAsync(int boutiqueId)
     {
         var inventaire = await context.BoutiqueInventaires
-            .AsNoTracking()
             .Where(i => i.IsActive && i.BoutiqueId == boutiqueId)
             .OrderByDescending(i => i.DateInventaire)
             .ThenByDescending(i => i.Id)
             .FirstOrDefaultAsync();
+
+        if (inventaire == null)
+            return NotFound();
 
         return Ok(inventaire);
     }
@@ -64,50 +63,65 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<AppBoutiqueInventaire>> CreateAsync(AppBoutiqueInventaire inventaire)
     {
+        if (inventaire.BoutiqueId <= 0)
+            return BadRequest("Boutique obligatoire.");
+
+        if (inventaire.ValeurStock <= 0)
+            return BadRequest("Chiffre actuel obligatoire.");
+
         inventaire.Id = 0;
-        inventaire.DateInventaire = NormaliserDateUtc(inventaire.DateInventaire);
         inventaire.BoutiqueNom = inventaire.BoutiqueNom?.Trim() ?? string.Empty;
         inventaire.Observation = inventaire.Observation?.Trim() ?? string.Empty;
         inventaire.UtilisateurNom = inventaire.UtilisateurNom?.Trim() ?? string.Empty;
         inventaire.RoleUtilisateur = inventaire.RoleUtilisateur?.Trim() ?? string.Empty;
-        inventaire.IsActive = true;
+        inventaire.DateInventaire = NormaliserDateUtc(inventaire.DateInventaire);
         inventaire.DateCreation = DateTime.UtcNow;
         inventaire.DateModification = DateTime.UtcNow;
+        inventaire.IsActive = true;
 
         context.BoutiqueInventaires.Add(inventaire);
         await context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetByIdAsync), new { id = inventaire.Id }, inventaire);
+        return Ok(inventaire);
     }
 
     [HttpPut("{id:int}")]
     public async Task<ActionResult<AppBoutiqueInventaire>> UpdateAsync(int id, AppBoutiqueInventaire request)
     {
-        var inventaire = await context.BoutiqueInventaires.FirstOrDefaultAsync(i => i.Id == id);
+        var inventaire = await context.BoutiqueInventaires
+            .FirstOrDefaultAsync(i => i.Id == id && i.IsActive);
 
         if (inventaire == null)
             return NotFound();
 
+        if (request.BoutiqueId <= 0)
+            return BadRequest("Boutique obligatoire.");
+
+        if (request.ValeurStock <= 0)
+            return BadRequest("Chiffre actuel obligatoire.");
+
         inventaire.BoutiqueId = request.BoutiqueId;
         inventaire.BoutiqueNom = request.BoutiqueNom?.Trim() ?? string.Empty;
         inventaire.DateInventaire = NormaliserDateUtc(request.DateInventaire);
-        inventaire.BudgetInitial = request.BudgetInitial;
-        inventaire.MontantVente = request.MontantVente;
-        inventaire.DepenseProprietaire = request.DepenseProprietaire;
-        inventaire.SoldeCaisse = request.SoldeCaisse;
+        inventaire.ValeurStock = request.ValeurStock;
         inventaire.GainMois = request.GainMois;
+        inventaire.DepenseProprietaireMois = request.DepenseProprietaireMois;
         inventaire.Observation = request.Observation?.Trim() ?? string.Empty;
-        inventaire.IsActive = request.IsActive;
+        inventaire.UtilisateurId = request.UtilisateurId;
+        inventaire.UtilisateurNom = request.UtilisateurNom?.Trim() ?? string.Empty;
+        inventaire.RoleUtilisateur = request.RoleUtilisateur?.Trim() ?? string.Empty;
         inventaire.DateModification = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+
         return Ok(inventaire);
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteAsync(int id)
     {
-        var inventaire = await context.BoutiqueInventaires.FirstOrDefaultAsync(i => i.Id == id);
+        var inventaire = await context.BoutiqueInventaires
+            .FirstOrDefaultAsync(i => i.Id == id && i.IsActive);
 
         if (inventaire == null)
             return NotFound();
@@ -116,6 +130,7 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
         inventaire.DateModification = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+
         return NoContent();
     }
 
