@@ -39,6 +39,8 @@ public class AppDbContext : DbContext
     public DbSet<AppSoldeAgenceMouvement> SoldeAgenceMouvements => Set<AppSoldeAgenceMouvement>();
     public DbSet<AppApprovisionnementCode> ApprovisionnementCodes => Set<AppApprovisionnementCode>();
 
+    public DbSet<AppCodeRecuperationMotDePasse> CodesRecuperationMotDePasse => Set<AppCodeRecuperationMotDePasse>();
+
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -429,6 +431,20 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<AppApprovisionnementCode>()
             .HasIndex(a => new { a.IsActive, a.Statut, a.PaysDestination });
+        modelBuilder.Entity<AppCodeRecuperationMotDePasse>()
+    .Property(c => c.Code)
+    .HasMaxLength(20);
+
+        modelBuilder.Entity<AppCodeRecuperationMotDePasse>()
+            .Property(c => c.UtilisateurCreationNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppCodeRecuperationMotDePasse>()
+            .HasIndex(c => new { c.UtilisateurId, c.Code, c.IsActive, c.IsUtilise });
+
+        modelBuilder.Entity<AppCodeRecuperationMotDePasse>()
+            .HasIndex(c => new { c.IsActive, c.DateExpiration });
+
 
     }
 }
