@@ -202,16 +202,9 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<AppParametre>()
             .HasIndex(p => p.Cle);
-        modelBuilder.Entity<AppBoutique>()
-    .Property(b => b.Nom)
-    .HasMaxLength(140);
 
         modelBuilder.Entity<AppBoutique>()
-            .Property(b => b.GerantNom)
-            .HasMaxLength(140);
-
-        modelBuilder.Entity<AppBoutique>()
-            .Property(b => b.AssistantNom)
+            .Property(b => b.Nom)
             .HasMaxLength(140);
 
         modelBuilder.Entity<AppBoutique>()
@@ -223,11 +216,41 @@ public class AppDbContext : DbContext
             .HasMaxLength(80);
 
         modelBuilder.Entity<AppBoutique>()
+            .Property(b => b.GerantNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutique>()
+            .Property(b => b.GerantTelephone)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppBoutique>()
+            .Property(b => b.AssistantNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutique>()
+            .Property(b => b.AssistantTelephone)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppBoutique>()
             .HasIndex(b => new { b.IsActive, b.Nom });
+
+        modelBuilder.Entity<AppBoutique>()
+            .HasIndex(b => b.GerantUtilisateurId);
+
+        modelBuilder.Entity<AppBoutique>()
+            .HasIndex(b => b.AssistantUtilisateurId);
 
         modelBuilder.Entity<AppBoutiqueInventaire>()
             .Property(i => i.BoutiqueNom)
             .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutiqueInventaire>()
+            .Property(i => i.UtilisateurNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutiqueInventaire>()
+            .Property(i => i.RoleUtilisateur)
+            .HasMaxLength(40);
 
         modelBuilder.Entity<AppBoutiqueInventaire>()
             .HasIndex(i => new { i.BoutiqueId, i.IsActive, i.DateInventaire });
@@ -241,7 +264,17 @@ public class AppDbContext : DbContext
             .HasMaxLength(60);
 
         modelBuilder.Entity<AppBoutiqueBudgetMouvement>()
+            .Property(m => m.UtilisateurNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppBoutiqueBudgetMouvement>()
+            .Property(m => m.RoleUtilisateur)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppBoutiqueBudgetMouvement>()
             .HasIndex(m => new { m.BoutiqueId, m.IsActive, m.DateMouvement });
 
+        modelBuilder.Entity<AppBoutiqueBudgetMouvement>()
+            .HasIndex(m => m.TypeMouvement);
     }
 }

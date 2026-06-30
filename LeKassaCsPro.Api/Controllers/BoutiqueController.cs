@@ -39,15 +39,7 @@ public class BoutiqueController(AppDbContext context) : ControllerBase
     public async Task<ActionResult<AppBoutique>> CreateAsync(AppBoutique boutique)
     {
         boutique.Id = 0;
-        boutique.Nom = boutique.Nom?.Trim() ?? string.Empty;
-        boutique.GerantNom = boutique.GerantNom?.Trim() ?? string.Empty;
-        boutique.AssistantNom = boutique.AssistantNom?.Trim() ?? string.Empty;
-        boutique.Pays = boutique.Pays?.Trim() ?? string.Empty;
-        boutique.Ville = boutique.Ville?.Trim() ?? string.Empty;
-        boutique.Adresse = boutique.Adresse?.Trim() ?? string.Empty;
-        boutique.Observation = boutique.Observation?.Trim() ?? string.Empty;
-        boutique.UtilisateurNom = boutique.UtilisateurNom?.Trim() ?? string.Empty;
-        boutique.RoleUtilisateur = boutique.RoleUtilisateur?.Trim() ?? string.Empty;
+        NettoyerBoutique(boutique);
         boutique.IsActive = true;
         boutique.DateCreation = DateTime.UtcNow;
         boutique.DateModification = DateTime.UtcNow;
@@ -67,14 +59,17 @@ public class BoutiqueController(AppDbContext context) : ControllerBase
             return NotFound();
 
         boutique.Nom = request.Nom?.Trim() ?? string.Empty;
-        boutique.GerantUtilisateurId = request.GerantUtilisateurId;
-        boutique.GerantNom = request.GerantNom?.Trim() ?? string.Empty;
-        boutique.AssistantUtilisateurId = request.AssistantUtilisateurId;
-        boutique.AssistantNom = request.AssistantNom?.Trim() ?? string.Empty;
         boutique.Pays = request.Pays?.Trim() ?? string.Empty;
         boutique.Ville = request.Ville?.Trim() ?? string.Empty;
         boutique.Adresse = request.Adresse?.Trim() ?? string.Empty;
+        boutique.DateOuverture = NormaliserDateUtc(request.DateOuverture);
         boutique.BudgetInitial = request.BudgetInitial;
+        boutique.GerantUtilisateurId = request.GerantUtilisateurId;
+        boutique.GerantNom = request.GerantNom?.Trim() ?? string.Empty;
+        boutique.GerantTelephone = request.GerantTelephone?.Trim() ?? string.Empty;
+        boutique.AssistantUtilisateurId = request.AssistantUtilisateurId;
+        boutique.AssistantNom = request.AssistantNom?.Trim() ?? string.Empty;
+        boutique.AssistantTelephone = request.AssistantTelephone?.Trim() ?? string.Empty;
         boutique.Observation = request.Observation?.Trim() ?? string.Empty;
         boutique.IsActive = request.IsActive;
         boutique.DateModification = DateTime.UtcNow;
@@ -96,5 +91,35 @@ public class BoutiqueController(AppDbContext context) : ControllerBase
 
         await context.SaveChangesAsync();
         return NoContent();
+    }
+
+    private static void NettoyerBoutique(AppBoutique boutique)
+    {
+        boutique.Nom = boutique.Nom?.Trim() ?? string.Empty;
+        boutique.Pays = boutique.Pays?.Trim() ?? string.Empty;
+        boutique.Ville = boutique.Ville?.Trim() ?? string.Empty;
+        boutique.Adresse = boutique.Adresse?.Trim() ?? string.Empty;
+        boutique.DateOuverture = NormaliserDateUtc(boutique.DateOuverture);
+        boutique.GerantNom = boutique.GerantNom?.Trim() ?? string.Empty;
+        boutique.GerantTelephone = boutique.GerantTelephone?.Trim() ?? string.Empty;
+        boutique.AssistantNom = boutique.AssistantNom?.Trim() ?? string.Empty;
+        boutique.AssistantTelephone = boutique.AssistantTelephone?.Trim() ?? string.Empty;
+        boutique.Observation = boutique.Observation?.Trim() ?? string.Empty;
+        boutique.UtilisateurNom = boutique.UtilisateurNom?.Trim() ?? string.Empty;
+        boutique.RoleUtilisateur = boutique.RoleUtilisateur?.Trim() ?? string.Empty;
+    }
+
+    private static DateTime NormaliserDateUtc(DateTime date)
+    {
+        if (date == default)
+            return DateTime.UtcNow;
+
+        if (date.Kind == DateTimeKind.Utc)
+            return date;
+
+        if (date.Kind == DateTimeKind.Local)
+            return date.ToUniversalTime();
+
+        return DateTime.SpecifyKind(date, DateTimeKind.Utc);
     }
 }

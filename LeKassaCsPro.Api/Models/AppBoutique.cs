@@ -12,15 +12,21 @@ public class AppBoutique
 
     public string Adresse { get; set; } = string.Empty;
 
+    public DateTime DateOuverture { get; set; } = DateTime.UtcNow;
+
     public decimal BudgetInitial { get; set; }
 
     public int GerantUtilisateurId { get; set; }
 
     public string GerantNom { get; set; } = string.Empty;
 
+    public string GerantTelephone { get; set; } = string.Empty;
+
     public int AssistantUtilisateurId { get; set; }
 
     public string AssistantNom { get; set; } = string.Empty;
+
+    public string AssistantTelephone { get; set; } = string.Empty;
 
     public string Observation { get; set; } = string.Empty;
 
