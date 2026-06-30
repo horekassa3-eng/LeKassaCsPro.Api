@@ -37,6 +37,8 @@ public class AppDbContext : DbContext
 
     public DbSet<AppCodeTransfert> CodeTransferts => Set<AppCodeTransfert>();
     public DbSet<AppSoldeAgenceMouvement> SoldeAgenceMouvements => Set<AppSoldeAgenceMouvement>();
+    public DbSet<AppApprovisionnementCode> ApprovisionnementCodes => Set<AppApprovisionnementCode>();
+
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -381,6 +383,52 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<AppSoldeAgenceMouvement>()
             .HasIndex(m => new { m.IsActive, m.DateMouvement });
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .Property(a => a.CodeUnique)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .Property(a => a.PaysOrigine)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .Property(a => a.PaysDestination)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .Property(a => a.Devise)
+            .HasMaxLength(10);
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .Property(a => a.Statut)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .Property(a => a.UtilisateurNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .Property(a => a.RoleUtilisateur)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .Property(a => a.UtilisateurReceptionNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .Property(a => a.RoleUtilisateurReception)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .HasIndex(a => a.CodeUnique)
+            .IsUnique();
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .HasIndex(a => new { a.IsActive, a.DateCreationCode });
+
+        modelBuilder.Entity<AppApprovisionnementCode>()
+            .HasIndex(a => new { a.IsActive, a.Statut, a.PaysDestination });
 
     }
 }
