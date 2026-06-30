@@ -35,6 +35,10 @@ public class AppDbContext : DbContext
 
     public DbSet<AppParametre> Parametres => Set<AppParametre>();
 
+    public DbSet<AppCodeTransfert> CodeTransferts => Set<AppCodeTransfert>();
+    public DbSet<AppSoldeAgenceMouvement> SoldeAgenceMouvements => Set<AppSoldeAgenceMouvement>();
+
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -276,5 +280,80 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<AppBoutiqueBudgetMouvement>()
             .HasIndex(m => m.TypeMouvement);
+        modelBuilder.Entity<AppCodeTransfert>()
+    .Property(c => c.Code)
+    .HasMaxLength(40);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.Statut)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.PaysEnvoi)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.PaysRetrait)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.AgenceEnvoi)
+            .HasMaxLength(120);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.AgenceRetrait)
+            .HasMaxLength(120);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.NomExpediteur)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.TelephoneExpediteur)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.NomBeneficiaire)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.TelephoneBeneficiaire)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .HasIndex(c => c.Code);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .HasIndex(c => new { c.IsActive, c.DateEnvoi });
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .HasIndex(c => c.Statut);
+
+        modelBuilder.Entity<AppSoldeAgenceMouvement>()
+            .Property(m => m.PaysAgence)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppSoldeAgenceMouvement>()
+            .Property(m => m.MoyenPaiement)
+            .HasMaxLength(80);
+
+        modelBuilder.Entity<AppSoldeAgenceMouvement>()
+            .Property(m => m.Devise)
+            .HasMaxLength(10);
+
+        modelBuilder.Entity<AppSoldeAgenceMouvement>()
+            .Property(m => m.TypeMouvement)
+            .HasMaxLength(80);
+
+        modelBuilder.Entity<AppSoldeAgenceMouvement>()
+            .Property(m => m.SourceModule)
+            .HasMaxLength(80);
+
+        modelBuilder.Entity<AppSoldeAgenceMouvement>()
+            .HasIndex(m => new { m.PaysAgence, m.MoyenPaiement, m.Devise });
+
+        modelBuilder.Entity<AppSoldeAgenceMouvement>()
+            .HasIndex(m => new { m.IsActive, m.DateMouvement });
+
     }
 }
