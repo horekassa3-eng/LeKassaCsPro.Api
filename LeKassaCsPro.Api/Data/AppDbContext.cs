@@ -353,7 +353,11 @@ public class AppDbContext : DbContext
             .HasMaxLength(60);
 
         modelBuilder.Entity<AppSoldeAgenceMouvement>()
-            .Property(m => m.MoyenPaiement)
+            .Property(m => m.Pays)
+            .HasMaxLength(60);
+
+        modelBuilder.Entity<AppSoldeAgenceMouvement>()
+            .Property(m => m.Moyen)
             .HasMaxLength(80);
 
         modelBuilder.Entity<AppSoldeAgenceMouvement>()
@@ -373,7 +377,7 @@ public class AppDbContext : DbContext
             .HasMaxLength(40);
 
         modelBuilder.Entity<AppSoldeAgenceMouvement>()
-            .HasIndex(m => new { m.IsActive, m.PaysAgence, m.MoyenPaiement, m.Devise });
+            .HasIndex(m => new { m.IsActive, m.PaysAgence, m.Moyen, m.Devise });
 
         modelBuilder.Entity<AppSoldeAgenceMouvement>()
             .HasIndex(m => new { m.IsActive, m.DateMouvement });
