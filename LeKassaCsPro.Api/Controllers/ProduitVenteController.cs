@@ -31,6 +31,16 @@ public class ProduitVenteController(AppDbContext context) : ControllerBase
     public async Task<ActionResult<AppProduitVente>> SaveAsync([FromBody] AppProduitVente produit)
     {
         produit.Id = 0;
+        produit.Nom = produit.Nom?.Trim() ?? string.Empty;
+        produit.Categorie = produit.Categorie?.Trim() ?? string.Empty;
+        produit.CodeProduit = produit.CodeProduit?.Trim() ?? string.Empty;
+        produit.Unite = string.IsNullOrWhiteSpace(produit.Unite)
+            ? "Pièce"
+            : produit.Unite.Trim();
+
+        // IMPORTANT : enregistrer image nouveau produit
+        produit.ImageBase64 = produit.ImageBase64 ?? string.Empty;
+
         produit.DateCreation = DateTime.UtcNow;
         produit.DateModification = DateTime.UtcNow;
         produit.IsActive = true;
@@ -50,13 +60,20 @@ public class ProduitVenteController(AppDbContext context) : ControllerBase
         if (produit == null)
             return NotFound();
 
-        produit.Nom = request.Nom;
-        produit.Categorie = request.Categorie;
-        produit.CodeProduit = request.CodeProduit;
-        produit.Unite = request.Unite;
+        produit.Nom = request.Nom?.Trim() ?? string.Empty;
+        produit.Categorie = request.Categorie?.Trim() ?? string.Empty;
+        produit.CodeProduit = request.CodeProduit?.Trim() ?? string.Empty;
+        produit.Unite = string.IsNullOrWhiteSpace(request.Unite)
+            ? "Pièce"
+            : request.Unite.Trim();
+
         produit.PrixAchat = request.PrixAchat;
         produit.PrixVente = request.PrixVente;
         produit.StockAlerte = request.StockAlerte;
+
+        // IMPORTANT : correction changement image après modification
+        produit.ImageBase64 = request.ImageBase64 ?? string.Empty;
+
         produit.UtilisateurId = request.UtilisateurId;
         produit.UtilisateurNom = request.UtilisateurNom;
         produit.RoleUtilisateur = request.RoleUtilisateur;
