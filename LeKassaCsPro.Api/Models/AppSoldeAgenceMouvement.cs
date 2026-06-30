@@ -8,7 +8,7 @@ public class AppSoldeAgenceMouvement
 
     public string PaysAgence { get; set; } = string.Empty;
 
-    public string MoyenPaiement { get; set; } = string.Empty;
+    public string MoyenPaiement { get; set; } = "Espèces";
 
     public string Devise { get; set; } = "FCFA";
 
@@ -19,10 +19,6 @@ public class AppSoldeAgenceMouvement
     public string Motif { get; set; } = string.Empty;
 
     public string Observation { get; set; } = string.Empty;
-
-    public string SourceModule { get; set; } = string.Empty;
-
-    public int SourceId { get; set; }
 
     public bool IsActive { get; set; } = true;
 

@@ -281,8 +281,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AppBoutiqueBudgetMouvement>()
             .HasIndex(m => m.TypeMouvement);
         modelBuilder.Entity<AppCodeTransfert>()
-    .Property(c => c.Code)
-    .HasMaxLength(40);
+            .Property(c => c.CodeUnique)
+            .HasMaxLength(40);
 
         modelBuilder.Entity<AppCodeTransfert>()
             .Property(c => c.Statut)
@@ -297,19 +297,11 @@ public class AppDbContext : DbContext
             .HasMaxLength(60);
 
         modelBuilder.Entity<AppCodeTransfert>()
-            .Property(c => c.AgenceEnvoi)
-            .HasMaxLength(120);
-
-        modelBuilder.Entity<AppCodeTransfert>()
-            .Property(c => c.AgenceRetrait)
-            .HasMaxLength(120);
-
-        modelBuilder.Entity<AppCodeTransfert>()
-            .Property(c => c.NomExpediteur)
+            .Property(c => c.NomEnvoyeur)
             .HasMaxLength(140);
 
         modelBuilder.Entity<AppCodeTransfert>()
-            .Property(c => c.TelephoneExpediteur)
+            .Property(c => c.TelephoneEnvoyeur)
             .HasMaxLength(40);
 
         modelBuilder.Entity<AppCodeTransfert>()
@@ -321,13 +313,46 @@ public class AppDbContext : DbContext
             .HasMaxLength(40);
 
         modelBuilder.Entity<AppCodeTransfert>()
-            .HasIndex(c => c.Code);
+            .Property(c => c.AdresseBeneficiaire)
+            .HasMaxLength(180);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.NomRetireur)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.TelephoneRetireur)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.PieceIdentite)
+            .HasMaxLength(80);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.UtilisateurNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.RoleUtilisateur)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.RetraitUtilisateurNom)
+            .HasMaxLength(140);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .Property(c => c.RetraitRoleUtilisateur)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppCodeTransfert>()
+            .HasIndex(c => c.CodeUnique)
+            .IsUnique();
 
         modelBuilder.Entity<AppCodeTransfert>()
             .HasIndex(c => new { c.IsActive, c.DateEnvoi });
 
         modelBuilder.Entity<AppCodeTransfert>()
-            .HasIndex(c => c.Statut);
+            .HasIndex(c => new { c.IsActive, c.Statut, c.PaysRetrait });
 
         modelBuilder.Entity<AppSoldeAgenceMouvement>()
             .Property(m => m.PaysAgence)
@@ -346,11 +371,15 @@ public class AppDbContext : DbContext
             .HasMaxLength(80);
 
         modelBuilder.Entity<AppSoldeAgenceMouvement>()
-            .Property(m => m.SourceModule)
-            .HasMaxLength(80);
+            .Property(m => m.UtilisateurNom)
+            .HasMaxLength(140);
 
         modelBuilder.Entity<AppSoldeAgenceMouvement>()
-            .HasIndex(m => new { m.PaysAgence, m.MoyenPaiement, m.Devise });
+            .Property(m => m.RoleUtilisateur)
+            .HasMaxLength(40);
+
+        modelBuilder.Entity<AppSoldeAgenceMouvement>()
+            .HasIndex(m => new { m.IsActive, m.PaysAgence, m.MoyenPaiement, m.Devise });
 
         modelBuilder.Entity<AppSoldeAgenceMouvement>()
             .HasIndex(m => new { m.IsActive, m.DateMouvement });
