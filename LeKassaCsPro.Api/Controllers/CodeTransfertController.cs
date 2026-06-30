@@ -12,141 +12,191 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<AppCodeTransfert>>> GetAllAsync()
     {
-        var items = await context.CodeTransferts
+        var codes = await context.CodeTransferts
             .AsNoTracking()
             .Where(c => c.IsActive)
             .OrderByDescending(c => c.DateEnvoi)
             .ToListAsync();
 
-        return Ok(items);
+        return Ok(codes);
     }
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<AppCodeTransfert>> GetByIdAsync(int id)
     {
-        var item = await context.CodeTransferts
+        var code = await context.CodeTransferts
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id && c.IsActive);
 
-        if (item == null)
+        if (code == null)
             return NotFound();
 
-        return Ok(item);
+        return Ok(code);
     }
 
-    [HttpGet("code/{code}")]
-    public async Task<ActionResult<AppCodeTransfert>> GetByCodeAsync(string code)
+    [HttpGet("code/{codeUnique}")]
+    public async Task<ActionResult<AppCodeTransfert>> GetByCodeAsync(string codeUnique)
     {
-        if (string.IsNullOrWhiteSpace(code))
-            return BadRequest("Code obligatoire.");
+        if (string.IsNullOrWhiteSpace(codeUnique))
+            return BadRequest("Code invalide.");
 
-        var codeNormalise = code.Trim();
+        var codeNormalise = codeUnique.Trim();
 
-        var item = await context.CodeTransferts
+        var code = await context.CodeTransferts
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.IsActive && c.Code == codeNormalise);
+            .FirstOrDefaultAsync(c =>
+                c.IsActive &&
+                c.CodeUnique.ToLower() == codeNormalise.ToLower());
 
-        if (item == null)
+        if (code == null)
             return NotFound();
 
-        return Ok(item);
+        return Ok(code);
+    }
+
+    [HttpGet("en-attente/{paysRetrait}")]
+    public async Task<ActionResult<decimal>> GetMontantEnAttenteAsync(string paysRetrait)
+    {
+        if (string.IsNullOrWhiteSpace(paysRetrait))
+            return Ok(0m);
+
+        var pays = paysRetrait.Trim();
+
+        var total = await context.CodeTransferts
+            .AsNoTracking()
+            .Where(c =>
+                c.IsActive &&
+                c.Statut.ToLower() == "en attente" &&
+                c.PaysRetrait.ToLower() == pays.ToLower())
+            .SumAsync(c => c.Montant);
+
+        return Ok(total);
     }
 
     [HttpPost]
-    public async Task<ActionResult<AppCodeTransfert>> CreateAsync([FromBody] AppCodeTransfert item)
+    public async Task<ActionResult<AppCodeTransfert>> CreateAsync([FromBody] AppCodeTransfert code)
     {
-        if (item == null)
+        if (code == null)
             return BadRequest("Données invalides.");
 
-        if (item.DateEnvoi == default)
-            item.DateEnvoi = DateTime.UtcNow;
+        if (string.IsNullOrWhiteSpace(code.CodeUnique))
+            return BadRequest("Code obligatoire.");
 
-        item.Code = item.Code?.Trim() ?? string.Empty;
-        item.Statut = string.IsNullOrWhiteSpace(item.Statut) ? "En attente" : item.Statut.Trim();
-        item.DateEnvoi = NormaliserDateUtc(item.DateEnvoi);
-        item.DateRetrait = NormaliserDateUtcNullable(item.DateRetrait);
-        item.DateCreation = DateTime.UtcNow;
-        item.DateModification = DateTime.UtcNow;
-        item.IsActive = true;
+        if (code.Montant <= 0)
+            return BadRequest("Montant obligatoire.");
 
-        context.CodeTransferts.Add(item);
+        var existe = await context.CodeTransferts.AnyAsync(c =>
+            c.IsActive &&
+            c.CodeUnique.ToLower() == code.CodeUnique.Trim().ToLower());
+
+        if (existe)
+            return BadRequest("Ce code existe déjà.");
+
+        code.Id = 0;
+        Nettoyer(code);
+        code.DateEnvoi = NormaliserDateUtc(code.DateEnvoi);
+        code.DateRetrait = NormaliserDateNullableUtc(code.DateRetrait);
+        code.DateCreation = DateTime.UtcNow;
+        code.DateModification = DateTime.UtcNow;
+        code.IsActive = true;
+
+        context.CodeTransferts.Add(code);
         await context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(GetByIdAsync), new { id = item.Id }, item);
+        return CreatedAtAction(nameof(GetByIdAsync), new { id = code.Id }, code);
     }
 
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<AppCodeTransfert>> UpdateAsync(int id, [FromBody] AppCodeTransfert item)
+    public async Task<ActionResult<AppCodeTransfert>> UpdateAsync(int id, [FromBody] AppCodeTransfert code)
     {
-        if (item == null || id <= 0)
+        if (code == null || id <= 0)
             return BadRequest("Données invalides.");
 
-        var existing = await context.CodeTransferts.FirstOrDefaultAsync(c => c.Id == id);
+        var existant = await context.CodeTransferts.FirstOrDefaultAsync(c => c.Id == id && c.IsActive);
 
-        if (existing == null)
+        if (existant == null)
             return NotFound();
 
-        existing.Code = item.Code?.Trim() ?? string.Empty;
-        existing.DateEnvoi = NormaliserDateUtc(item.DateEnvoi == default ? existing.DateEnvoi : item.DateEnvoi);
-        existing.DateRetrait = NormaliserDateUtcNullable(item.DateRetrait);
-        existing.PaysEnvoi = item.PaysEnvoi?.Trim() ?? string.Empty;
-        existing.PaysRetrait = item.PaysRetrait?.Trim() ?? string.Empty;
-        existing.AgenceEnvoi = item.AgenceEnvoi?.Trim() ?? string.Empty;
-        existing.AgenceRetrait = item.AgenceRetrait?.Trim() ?? string.Empty;
-        existing.NomExpediteur = item.NomExpediteur?.Trim() ?? string.Empty;
-        existing.TelephoneExpediteur = item.TelephoneExpediteur?.Trim() ?? string.Empty;
-        existing.NomBeneficiaire = item.NomBeneficiaire?.Trim() ?? string.Empty;
-        existing.TelephoneBeneficiaire = item.TelephoneBeneficiaire?.Trim() ?? string.Empty;
-        existing.Montant = item.Montant;
-        existing.Frais = item.Frais;
-        existing.TotalPaye = item.TotalPaye;
-        existing.Statut = string.IsNullOrWhiteSpace(item.Statut) ? existing.Statut : item.Statut.Trim();
-        existing.Observation = item.Observation?.Trim() ?? string.Empty;
-        existing.IsActive = item.IsActive;
-        existing.UtilisateurId = item.UtilisateurId;
-        existing.UtilisateurNom = item.UtilisateurNom?.Trim() ?? string.Empty;
-        existing.RoleUtilisateur = item.RoleUtilisateur?.Trim() ?? string.Empty;
-        existing.RetraitUtilisateurId = item.RetraitUtilisateurId;
-        existing.RetraitUtilisateurNom = item.RetraitUtilisateurNom?.Trim() ?? string.Empty;
-        existing.RetraitRoleUtilisateur = item.RetraitRoleUtilisateur?.Trim() ?? string.Empty;
-        existing.DateModification = DateTime.UtcNow;
+        var codeUnique = string.IsNullOrWhiteSpace(code.CodeUnique)
+            ? existant.CodeUnique
+            : code.CodeUnique.Trim();
+
+        var doublon = await context.CodeTransferts.AnyAsync(c =>
+            c.Id != id &&
+            c.IsActive &&
+            c.CodeUnique.ToLower() == codeUnique.ToLower());
+
+        if (doublon)
+            return BadRequest("Ce code existe déjà.");
+
+        existant.CodeUnique = codeUnique;
+        existant.NomEnvoyeur = code.NomEnvoyeur?.Trim() ?? string.Empty;
+        existant.TelephoneEnvoyeur = code.TelephoneEnvoyeur?.Trim() ?? string.Empty;
+        existant.NomBeneficiaire = code.NomBeneficiaire?.Trim() ?? string.Empty;
+        existant.TelephoneBeneficiaire = code.TelephoneBeneficiaire?.Trim() ?? string.Empty;
+        existant.AdresseBeneficiaire = code.AdresseBeneficiaire?.Trim() ?? string.Empty;
+        existant.PaysEnvoi = code.PaysEnvoi?.Trim() ?? string.Empty;
+        existant.PaysRetrait = code.PaysRetrait?.Trim() ?? string.Empty;
+        existant.Montant = code.Montant;
+        existant.Frais = code.Frais;
+        existant.TotalPaye = code.TotalPaye;
+        existant.Statut = string.IsNullOrWhiteSpace(code.Statut) ? existant.Statut : code.Statut.Trim();
+        existant.DateEnvoi = NormaliserDateUtc(code.DateEnvoi == default ? existant.DateEnvoi : code.DateEnvoi);
+        existant.DateRetrait = NormaliserDateNullableUtc(code.DateRetrait);
+        existant.NomRetireur = code.NomRetireur?.Trim() ?? string.Empty;
+        existant.TelephoneRetireur = code.TelephoneRetireur?.Trim() ?? string.Empty;
+        existant.PieceIdentite = code.PieceIdentite?.Trim() ?? string.Empty;
+        existant.Observation = code.Observation?.Trim() ?? string.Empty;
+        existant.ObservationRetrait = code.ObservationRetrait?.Trim() ?? string.Empty;
+        existant.UtilisateurId = code.UtilisateurId;
+        existant.UtilisateurNom = code.UtilisateurNom?.Trim() ?? string.Empty;
+        existant.RoleUtilisateur = code.RoleUtilisateur?.Trim() ?? string.Empty;
+        existant.RetraitUtilisateurId = code.RetraitUtilisateurId;
+        existant.RetraitUtilisateurNom = code.RetraitUtilisateurNom?.Trim() ?? string.Empty;
+        existant.RetraitRoleUtilisateur = code.RetraitRoleUtilisateur?.Trim() ?? string.Empty;
+        existant.DateModification = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
-        return Ok(existing);
+
+        return Ok(existant);
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteAsync(int id)
     {
-        var item = await context.CodeTransferts.FirstOrDefaultAsync(c => c.Id == id);
+        var code = await context.CodeTransferts.FirstOrDefaultAsync(c => c.Id == id && c.IsActive);
 
-        if (item == null)
+        if (code == null)
             return NotFound();
 
-        item.IsActive = false;
-        item.DateModification = DateTime.UtcNow;
+        code.IsActive = false;
+        code.DateModification = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+
         return NoContent();
     }
 
-    [HttpPost("{id:int}/retirer")]
-    public async Task<ActionResult<AppCodeTransfert>> RetirerAsync(int id, [FromBody] RetraitCodeRequest request)
+    private static void Nettoyer(AppCodeTransfert code)
     {
-        var item = await context.CodeTransferts.FirstOrDefaultAsync(c => c.Id == id && c.IsActive);
-
-        if (item == null)
-            return NotFound();
-
-        item.Statut = "Retiré";
-        item.DateRetrait = DateTime.UtcNow;
-        item.RetraitUtilisateurId = request.UtilisateurId;
-        item.RetraitUtilisateurNom = request.UtilisateurNom?.Trim() ?? string.Empty;
-        item.RetraitRoleUtilisateur = request.RoleUtilisateur?.Trim() ?? string.Empty;
-        item.DateModification = DateTime.UtcNow;
-
-        await context.SaveChangesAsync();
-        return Ok(item);
+        code.CodeUnique = code.CodeUnique?.Trim() ?? string.Empty;
+        code.NomEnvoyeur = code.NomEnvoyeur?.Trim() ?? string.Empty;
+        code.TelephoneEnvoyeur = code.TelephoneEnvoyeur?.Trim() ?? string.Empty;
+        code.NomBeneficiaire = code.NomBeneficiaire?.Trim() ?? string.Empty;
+        code.TelephoneBeneficiaire = code.TelephoneBeneficiaire?.Trim() ?? string.Empty;
+        code.AdresseBeneficiaire = code.AdresseBeneficiaire?.Trim() ?? string.Empty;
+        code.PaysEnvoi = code.PaysEnvoi?.Trim() ?? string.Empty;
+        code.PaysRetrait = code.PaysRetrait?.Trim() ?? string.Empty;
+        code.Statut = string.IsNullOrWhiteSpace(code.Statut) ? "En attente" : code.Statut.Trim();
+        code.NomRetireur = code.NomRetireur?.Trim() ?? string.Empty;
+        code.TelephoneRetireur = code.TelephoneRetireur?.Trim() ?? string.Empty;
+        code.PieceIdentite = code.PieceIdentite?.Trim() ?? string.Empty;
+        code.Observation = code.Observation?.Trim() ?? string.Empty;
+        code.ObservationRetrait = code.ObservationRetrait?.Trim() ?? string.Empty;
+        code.UtilisateurNom = code.UtilisateurNom?.Trim() ?? string.Empty;
+        code.RoleUtilisateur = code.RoleUtilisateur?.Trim() ?? string.Empty;
+        code.RetraitUtilisateurNom = code.RetraitUtilisateurNom?.Trim() ?? string.Empty;
+        code.RetraitRoleUtilisateur = code.RetraitRoleUtilisateur?.Trim() ?? string.Empty;
     }
 
     private static DateTime NormaliserDateUtc(DateTime date)
@@ -163,17 +213,11 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
         return DateTime.SpecifyKind(date, DateTimeKind.Utc);
     }
 
-    private static DateTime? NormaliserDateUtcNullable(DateTime? date)
+    private static DateTime? NormaliserDateNullableUtc(DateTime? date)
     {
-        return date.HasValue ? NormaliserDateUtc(date.Value) : null;
-    }
+        if (date == null)
+            return null;
 
-    public sealed class RetraitCodeRequest
-    {
-        public int UtilisateurId { get; set; }
-
-        public string UtilisateurNom { get; set; } = string.Empty;
-
-        public string RoleUtilisateur { get; set; } = string.Empty;
+        return NormaliserDateUtc(date.Value);
     }
 }
