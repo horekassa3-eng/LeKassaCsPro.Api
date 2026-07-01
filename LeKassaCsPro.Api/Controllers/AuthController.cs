@@ -153,7 +153,9 @@ public class AuthController : ControllerBase
             NomComplet = utilisateur.NomComplet,
             NomUtilisateur = utilisateur.NomUtilisateur,
             Role = utilisateur.Role,
-            PaysAgence = utilisateur.PaysAgence,
+            PaysAgence = string.IsNullOrWhiteSpace(utilisateur.PaysAgence)
+                ? "Senegal"
+                : utilisateur.PaysAgence,
             IsActif = utilisateur.IsActif,
             Token = CreerToken(utilisateur)
         };
@@ -165,13 +167,15 @@ public class AuthController : ControllerBase
             ?? throw new InvalidOperationException("La cle JWT est manquante.");
 
         var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, utilisateur.Id.ToString()),
-            new Claim(ClaimTypes.Name, utilisateur.NomUtilisateur),
-            new Claim(ClaimTypes.Role, utilisateur.Role),
-            new Claim("nom_complet", utilisateur.NomComplet),
-            new Claim("pays_agence", utilisateur.PaysAgence)
-        };
+ {
+    new Claim(ClaimTypes.NameIdentifier, utilisateur.Id.ToString()),
+    new Claim(ClaimTypes.Name, utilisateur.NomUtilisateur),
+    new Claim(ClaimTypes.Role, utilisateur.Role),
+    new Claim("nom_complet", utilisateur.NomComplet),
+    new Claim("pays_agence", string.IsNullOrWhiteSpace(utilisateur.PaysAgence)
+        ? "Senegal"
+        : utilisateur.PaysAgence)
+};
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
