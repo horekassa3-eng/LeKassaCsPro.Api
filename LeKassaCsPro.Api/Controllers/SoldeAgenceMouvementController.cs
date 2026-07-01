@@ -154,13 +154,13 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
     {
         return string.Equals(typeMouvement, "Entrée", StringComparison.OrdinalIgnoreCase)
                || string.Equals(typeMouvement, "Entree", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(typeMouvement, "Retrait code", StringComparison.OrdinalIgnoreCase)
                || string.Equals(typeMouvement, "Approvisionnement reçu", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool EstSortie(string? typeMouvement)
     {
         return string.Equals(typeMouvement, "Sortie", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(typeMouvement, "Retrait code", StringComparison.OrdinalIgnoreCase)
                || string.Equals(typeMouvement, "Envoi code", StringComparison.OrdinalIgnoreCase)
                || string.Equals(typeMouvement, "Approvisionnement envoyé", StringComparison.OrdinalIgnoreCase);
     }
