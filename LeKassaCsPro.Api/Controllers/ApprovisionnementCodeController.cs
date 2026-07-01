@@ -9,6 +9,8 @@ namespace LeKassaCsPro.Api.Controllers;
 [Route("api/[controller]")]
 public class ApprovisionnementCodeController(AppDbContext context) : ControllerBase
 {
+    private const string PaysSenegal = "Sénégal";
+    private const string PaysGuinee = "Guinée";
     private const string StatutEnAttente = "En attente";
     private const string StatutAnnule = "Annule";
     private const string StatutAnnuleAccent = "Annulé";
@@ -50,6 +52,8 @@ public class ApprovisionnementCodeController(AppDbContext context) : ControllerB
             request.FraisFournisseur = 0;
 
         request.CodeUnique = NormaliserCode(request.CodeUnique);
+        request.PaysOrigine = PaysSenegal;
+        request.PaysDestination = PaysGuinee;
         request.Devise = string.IsNullOrWhiteSpace(request.Devise) ? "FCFA" : request.Devise.Trim();
         request.Statut = string.IsNullOrWhiteSpace(request.Statut) ? StatutEnAttente : request.Statut.Trim();
 
