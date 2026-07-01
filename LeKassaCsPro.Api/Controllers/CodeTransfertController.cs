@@ -175,44 +175,40 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
     {
         await DesactiverMouvementsSoldeAsync(code.Id);
 
-        if (!code.IsActive || code.Montant <= 0 || EstAnnule(code.Statut))
+        if (!code.IsActive
+            || code.Montant <= 0
+            || EstAnnule(code.Statut)
+            || !EstRetire(code.Statut))
+        {
             return;
-
-        var estRetire = EstRetire(code.Statut);
+        }
 
         context.SoldeAgenceMouvements.Add(new AppSoldeAgenceMouvement
         {
             PaysAgence = code.PaysRetrait,
             Pays = code.PaysRetrait,
             Moyen = "Espèces",
-            DateMouvement = code.DateEnvoi,
-            TypeMouvement = "Envoi code",
+            DateMouvement = code.DateRetrait ?? DateTime.UtcNow,
+            TypeMouvement = "Retrait code",
             Montant = code.Montant,
             Devise = "FCFA",
-            Motif = estRetire
-                ? $"Code retiré {code.CodeUnique} - {code.PaysRetrait}"
-                : $"Réservation code {code.CodeUnique} - {code.PaysRetrait}",
-            Observation = estRetire
-                ? $"Code retiré - {code.CodeUnique} - {code.PaysRetrait} | CodeTransfert #{code.Id}"
-                : $"Montant réservé pour retrait - code {code.CodeUnique} - {code.PaysRetrait} | CodeTransfert #{code.Id}",
+            Motif = $"Retrait espèces - code {code.CodeUnique} - {code.PaysRetrait}",
+            Observation = $"Retrait espèces - code {code.CodeUnique} - {code.PaysRetrait} | CodeTransfert #{code.Id}",
             SourceModule = SourceCodeTransfert,
             SourceId = code.Id,
             IsAutomatique = true,
             IsActive = true,
-            UtilisateurId = estRetire && code.UtilisateurRetraitId > 0
-                ? code.UtilisateurRetraitId
-                : code.UtilisateurEnvoiId,
-            UtilisateurNom = estRetire && !string.IsNullOrWhiteSpace(code.UtilisateurRetraitNom)
-                ? code.UtilisateurRetraitNom
-                : code.UtilisateurEnvoiNom,
-            RoleUtilisateur = estRetire && !string.IsNullOrWhiteSpace(code.RoleUtilisateurRetrait)
-                ? code.RoleUtilisateurRetrait
-                : code.RoleUtilisateurEnvoi,
+            UtilisateurId = code.UtilisateurRetraitId,
+            UtilisateurNom = string.IsNullOrWhiteSpace(code.UtilisateurRetraitNom)
+                ? "Agent Guinée"
+                : code.UtilisateurRetraitNom,
+            RoleUtilisateur = string.IsNullOrWhiteSpace(code.RoleUtilisateurRetrait)
+                ? "Agent"
+                : code.RoleUtilisateurRetrait,
             DateCreation = DateTime.UtcNow,
             DateModification = DateTime.UtcNow
         });
     }
-
     private async Task DesactiverMouvementsSoldeAsync(int codeId)
     {
         var mouvements = await context.SoldeAgenceMouvements
