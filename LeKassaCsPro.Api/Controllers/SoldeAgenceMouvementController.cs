@@ -9,6 +9,8 @@ namespace LeKassaCsPro.Api.Controllers;
 [Route("api/[controller]")]
 public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBase
 {
+    private const string SourceApprovisionnementCode = "ApprovisionnementCode";
+
     [HttpGet]
     public async Task<ActionResult<List<AppSoldeAgenceMouvement>>> GetAllAsync()
     {
@@ -65,6 +67,12 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
         if (mouvement.Montant <= 0)
             return BadRequest("Le montant est obligatoire.");
 
+        if (EstPaysGuinee(mouvement.PaysAgence) && !EstMouvementApprovisionnementCode(mouvement))
+        {
+            return BadRequest(
+                "Le solde Guinée ne peut pas être créé manuellement. Utilisez la réception d'approvisionnement par code.");
+        }
+
         if (EstSortie(mouvement.TypeMouvement))
         {
             var solde = await GetSoldeAgenceAsync(
@@ -96,6 +104,12 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
 
         if (mouvement == null)
             return NotFound();
+
+        if (EstPaysGuinee(mouvement.PaysAgence) || EstPaysGuinee(mouvement.Pays))
+        {
+            return BadRequest(
+                "Le solde Guinée est géré uniquement par l'approvisionnement code.");
+        }
 
         if (EstEntree(mouvement.TypeMouvement))
         {
@@ -149,6 +163,32 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
         return string.Equals(typeMouvement, "Sortie", StringComparison.OrdinalIgnoreCase)
                || string.Equals(typeMouvement, "Envoi code", StringComparison.OrdinalIgnoreCase)
                || string.Equals(typeMouvement, "Approvisionnement envoyé", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool EstMouvementApprovisionnementCode(AppSoldeAgenceMouvement mouvement)
+    {
+        return string.Equals(
+            mouvement.SourceModule?.Trim(),
+            SourceApprovisionnementCode,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool EstPaysGuinee(string? pays)
+    {
+        return NormaliserTexte(pays).Contains("guinee", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormaliserTexte(string? valeur)
+    {
+        return (valeur ?? string.Empty)
+            .Trim()
+            .ToLowerInvariant()
+            .Replace("é", "e")
+            .Replace("è", "e")
+            .Replace("ê", "e")
+            .Replace("ë", "e")
+            .Replace("ï", "i")
+            .Replace("î", "i");
     }
 
     private static DateTime NormaliserDateUtc(DateTime date)
