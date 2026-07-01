@@ -9,6 +9,12 @@ namespace LeKassaCsPro.Api.Controllers;
 [Route("api/[controller]")]
 public class CodeTransfertController(AppDbContext context) : ControllerBase
 {
+    private const string StatutAnnule = "Annule";
+    private const string StatutAnnuleAccent = "Annulé";
+    private const string StatutRetire = "Retire";
+    private const string StatutRetireAccent = "Retiré";
+    private const string SourceCodeTransfert = "CodeTransfert";
+
     [HttpGet]
     public async Task<ActionResult<List<AppCodeTransfert>>> GetAllAsync()
     {
@@ -32,13 +38,14 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
         return Ok(code);
     }
 
+    [HttpGet("{codeUnique}")]
     [HttpGet("code/{codeUnique}")]
     public async Task<ActionResult<AppCodeTransfert>> GetByCodeAsync(string codeUnique)
     {
         if (string.IsNullOrWhiteSpace(codeUnique))
             return BadRequest("Code obligatoire.");
 
-        var codeNormalise = codeUnique.Trim().ToUpper();
+        var codeNormalise = NormaliserCode(codeUnique);
 
         var code = await context.CodeTransferts
             .FirstOrDefaultAsync(c => c.IsActive && c.CodeUnique.ToUpper() == codeNormalise);
@@ -55,7 +62,10 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
         if (string.IsNullOrWhiteSpace(code.CodeUnique))
             return BadRequest("Code obligatoire.");
 
-        var codeNormalise = code.CodeUnique.Trim().ToUpper();
+        if (code.Montant <= 0)
+            return BadRequest("Le montant est obligatoire.");
+
+        var codeNormalise = NormaliserCode(code.CodeUnique);
 
         var existe = await context.CodeTransferts
             .AnyAsync(c => c.IsActive && c.CodeUnique.ToUpper() == codeNormalise);
@@ -63,19 +73,22 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
         if (existe)
             return BadRequest("Ce code existe déjà.");
 
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
         code.Id = 0;
         code.CodeUnique = codeNormalise;
-        code.Statut = string.IsNullOrWhiteSpace(code.Statut)
-            ? "En attente"
-            : code.Statut.Trim();
-        code.DateEnvoi = NormaliserDateUtc(code.DateEnvoi);
-        code.DateRetrait = NormaliserDateUtcNullable(code.DateRetrait);
+        NormaliserCodeTransfert(code);
         code.DateCreation = DateTime.UtcNow;
         code.DateModification = DateTime.UtcNow;
         code.IsActive = true;
 
         context.CodeTransferts.Add(code);
         await context.SaveChangesAsync();
+
+        await SynchroniserMouvementsSoldeAsync(code);
+
+        await context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return Ok(code);
     }
@@ -90,14 +103,16 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
             return NotFound();
 
         var codeNormalise = string.IsNullOrWhiteSpace(request.CodeUnique)
-            ? code.CodeUnique.Trim().ToUpper()
-            : request.CodeUnique.Trim().ToUpper();
+            ? NormaliserCode(code.CodeUnique)
+            : NormaliserCode(request.CodeUnique);
 
         var existe = await context.CodeTransferts
             .AnyAsync(c => c.Id != id && c.IsActive && c.CodeUnique.ToUpper() == codeNormalise);
 
         if (existe)
             return BadRequest("Ce code existe déjà.");
+
+        await using var transaction = await context.Database.BeginTransactionAsync();
 
         code.CodeUnique = codeNormalise;
         code.NomEnvoyeur = request.NomEnvoyeur?.Trim() ?? string.Empty;
@@ -110,9 +125,7 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
         code.Montant = request.Montant;
         code.Frais = request.Frais;
         code.TotalPaye = request.TotalPaye;
-        code.Statut = string.IsNullOrWhiteSpace(request.Statut)
-            ? code.Statut
-            : request.Statut.Trim();
+        code.Statut = string.IsNullOrWhiteSpace(request.Statut) ? code.Statut : request.Statut.Trim();
         code.DateEnvoi = NormaliserDateUtc(request.DateEnvoi == default ? code.DateEnvoi : request.DateEnvoi);
         code.DateRetrait = NormaliserDateUtcNullable(request.DateRetrait);
         code.Observation = request.Observation?.Trim() ?? string.Empty;
@@ -124,7 +137,14 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
         code.RoleUtilisateurRetrait = request.RoleUtilisateurRetrait?.Trim() ?? string.Empty;
         code.DateModification = DateTime.UtcNow;
 
+        NormaliserCodeTransfert(code);
+
         await context.SaveChangesAsync();
+
+        await SynchroniserMouvementsSoldeAsync(code);
+
+        await context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return Ok(code);
     }
@@ -138,12 +158,109 @@ public class CodeTransfertController(AppDbContext context) : ControllerBase
         if (code == null)
             return NotFound();
 
+        await using var transaction = await context.Database.BeginTransactionAsync();
+
         code.IsActive = false;
         code.DateModification = DateTime.UtcNow;
 
+        await DesactiverMouvementsSoldeAsync(code.Id);
+
         await context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return NoContent();
+    }
+
+    private async Task SynchroniserMouvementsSoldeAsync(AppCodeTransfert code)
+    {
+        await DesactiverMouvementsSoldeAsync(code.Id);
+
+        if (!code.IsActive || code.Montant <= 0 || EstAnnule(code.Statut))
+            return;
+
+        var estRetire = EstRetire(code.Statut);
+
+        context.SoldeAgenceMouvements.Add(new AppSoldeAgenceMouvement
+        {
+            PaysAgence = code.PaysRetrait,
+            Pays = code.PaysRetrait,
+            Moyen = "Espèces",
+            DateMouvement = code.DateEnvoi,
+            TypeMouvement = "Envoi code",
+            Montant = code.Montant,
+            Devise = "FCFA",
+            Motif = estRetire
+                ? $"Code retiré {code.CodeUnique} - {code.PaysRetrait}"
+                : $"Réservation code {code.CodeUnique} - {code.PaysRetrait}",
+            Observation = estRetire
+                ? $"Code retiré - {code.CodeUnique} - {code.PaysRetrait} | CodeTransfert #{code.Id}"
+                : $"Montant réservé pour retrait - code {code.CodeUnique} - {code.PaysRetrait} | CodeTransfert #{code.Id}",
+            SourceModule = SourceCodeTransfert,
+            SourceId = code.Id,
+            IsAutomatique = true,
+            IsActive = true,
+            UtilisateurId = estRetire && code.UtilisateurRetraitId > 0
+                ? code.UtilisateurRetraitId
+                : code.UtilisateurEnvoiId,
+            UtilisateurNom = estRetire && !string.IsNullOrWhiteSpace(code.UtilisateurRetraitNom)
+                ? code.UtilisateurRetraitNom
+                : code.UtilisateurEnvoiNom,
+            RoleUtilisateur = estRetire && !string.IsNullOrWhiteSpace(code.RoleUtilisateurRetrait)
+                ? code.RoleUtilisateurRetrait
+                : code.RoleUtilisateurEnvoi,
+            DateCreation = DateTime.UtcNow,
+            DateModification = DateTime.UtcNow
+        });
+    }
+
+    private async Task DesactiverMouvementsSoldeAsync(int codeId)
+    {
+        var mouvements = await context.SoldeAgenceMouvements
+            .Where(m => m.IsActive
+                        && m.SourceModule == SourceCodeTransfert
+                        && m.SourceId == codeId)
+            .ToListAsync();
+
+        foreach (var mouvement in mouvements)
+        {
+            mouvement.IsActive = false;
+            mouvement.DateModification = DateTime.UtcNow;
+        }
+    }
+
+    private static void NormaliserCodeTransfert(AppCodeTransfert code)
+    {
+        code.Statut = string.IsNullOrWhiteSpace(code.Statut)
+            ? "En attente"
+            : code.Statut.Trim();
+
+        code.PaysEnvoi = string.IsNullOrWhiteSpace(code.PaysEnvoi)
+            ? "Sénégal"
+            : code.PaysEnvoi.Trim();
+
+        code.PaysRetrait = string.IsNullOrWhiteSpace(code.PaysRetrait)
+            ? "Guinée"
+            : code.PaysRetrait.Trim();
+
+        code.DateEnvoi = NormaliserDateUtc(code.DateEnvoi);
+        code.DateRetrait = NormaliserDateUtcNullable(code.DateRetrait);
+    }
+
+    private static bool EstAnnule(string? statut)
+    {
+        return string.Equals(statut, StatutAnnule, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(statut, StatutAnnuleAccent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool EstRetire(string? statut)
+    {
+        return string.Equals(statut, StatutRetire, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(statut, StatutRetireAccent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormaliserCode(string? code)
+    {
+        return (code ?? string.Empty).Trim().ToUpperInvariant();
     }
 
     private static DateTime NormaliserDateUtc(DateTime date)

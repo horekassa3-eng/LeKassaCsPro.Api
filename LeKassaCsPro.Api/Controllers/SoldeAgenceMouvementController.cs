@@ -134,9 +134,10 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
     {
         var mouvements = await context.SoldeAgenceMouvements
             .Where(m => m.IsActive
-                        && (m.PaysAgence == pays || m.Pays == pays)
-                        && m.Moyen == moyen
-                        && m.Devise == devise)
+            && (NormaliserTexte(m.PaysAgence) == NormaliserTexte(pays)
+                || NormaliserTexte(m.Pays) == NormaliserTexte(pays))
+            && m.Moyen == moyen
+            && m.Devise == devise)
             .ToListAsync();
 
         var entrees = mouvements
