@@ -160,7 +160,29 @@ public class AuthController : ControllerBase
             Token = CreerToken(utilisateur)
         };
     }
+    [HttpGet("creer-admin-demo")]
+    public async Task<ActionResult<LoginResponse>> CreerAdminDemoAsync()
+    {
+        if (await _context.Utilisateurs.AnyAsync())
+            return BadRequest("Un utilisateur existe deja.");
 
+        var utilisateur = new AppUtilisateur
+        {
+            NomComplet = "Diallo Cellou",
+            NomUtilisateur = "administrateur",
+            MotDePasseHash = BCrypt.Net.BCrypt.HashPassword("1234"),
+            Role = "Admin",
+            PaysAgence = "Senegal",
+            IsActif = true,
+            DateCreation = DateTime.UtcNow,
+            DateModification = DateTime.UtcNow
+        };
+
+        _context.Utilisateurs.Add(utilisateur);
+        await _context.SaveChangesAsync();
+
+        return Ok(CreerReponse(utilisateur));
+    }
     private string CreerToken(AppUtilisateur utilisateur)
     {
         var jwtKey = _configuration["Jwt:Key"]
