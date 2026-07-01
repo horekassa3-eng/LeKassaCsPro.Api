@@ -41,6 +41,8 @@ public class AuthController : ControllerBase
                 NomComplet = u.NomComplet,
                 NomUtilisateur = u.NomUtilisateur,
                 Role = u.Role,
+                PaysAgence = u.PaysAgence,
+                IsActif = u.IsActif,
                 Token = string.Empty
             })
             .ToListAsync();
@@ -52,7 +54,7 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<LoginResponse>> CreerPremierAdminAsync(CreerPremierAdminRequest request)
     {
         if (await _context.Utilisateurs.AnyAsync())
-            return BadRequest("Le premier compte existe déjà.");
+            return BadRequest("Le premier compte existe deja.");
 
         if (string.IsNullOrWhiteSpace(request.NomComplet) ||
             string.IsNullOrWhiteSpace(request.NomUtilisateur) ||
@@ -67,8 +69,10 @@ public class AuthController : ControllerBase
             NomUtilisateur = request.NomUtilisateur.Trim(),
             MotDePasseHash = BCrypt.Net.BCrypt.HashPassword(request.MotDePasse),
             Role = "Admin",
+            PaysAgence = "Senegal",
             IsActif = true,
-            DateCreation = DateTime.UtcNow
+            DateCreation = DateTime.UtcNow,
+            DateModification = DateTime.UtcNow
         };
 
         _context.Utilisateurs.Add(utilisateur);
@@ -88,13 +92,13 @@ public class AuthController : ControllerBase
             return BadRequest("Veuillez remplir tous les champs.");
         }
 
-        var nomUtilisateur = request.NomUtilisateur.Trim().ToLower();
+        var nomUtilisateur = request.NomUtilisateur.Trim();
 
         var existeDeja = await _context.Utilisateurs
-            .AnyAsync(u => u.NomUtilisateur.ToLower() == nomUtilisateur);
+            .AnyAsync(u => u.NomUtilisateur.ToLower() == nomUtilisateur.ToLower());
 
         if (existeDeja)
-            return BadRequest("Ce nom utilisateur existe déjà.");
+            return BadRequest("Ce nom utilisateur existe deja.");
 
         var utilisateur = new AppUtilisateur
         {
@@ -102,8 +106,12 @@ public class AuthController : ControllerBase
             NomUtilisateur = request.NomUtilisateur.Trim(),
             MotDePasseHash = BCrypt.Net.BCrypt.HashPassword(request.MotDePasse),
             Role = request.Role.Trim(),
+            PaysAgence = string.IsNullOrWhiteSpace(request.PaysAgence)
+                ? "Senegal"
+                : request.PaysAgence.Trim(),
             IsActif = true,
-            DateCreation = DateTime.UtcNow
+            DateCreation = DateTime.UtcNow,
+            DateModification = DateTime.UtcNow
         };
 
         _context.Utilisateurs.Add(utilisateur);
@@ -115,10 +123,16 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> LoginAsync(LoginRequest request)
     {
-        var nomUtilisateur = request.NomUtilisateur.Trim().ToLower();
+        if (string.IsNullOrWhiteSpace(request.NomUtilisateur) ||
+            string.IsNullOrWhiteSpace(request.MotDePasse))
+        {
+            return BadRequest("Veuillez remplir tous les champs.");
+        }
+
+        var nomUtilisateur = request.NomUtilisateur.Trim();
 
         var utilisateur = await _context.Utilisateurs
-            .FirstOrDefaultAsync(u => u.NomUtilisateur.ToLower() == nomUtilisateur);
+            .FirstOrDefaultAsync(u => u.NomUtilisateur.ToLower() == nomUtilisateur.ToLower());
 
         if (utilisateur is null || !utilisateur.IsActif)
             return Unauthorized("Utilisateur ou mot de passe incorrect.");
@@ -139,6 +153,8 @@ public class AuthController : ControllerBase
             NomComplet = utilisateur.NomComplet,
             NomUtilisateur = utilisateur.NomUtilisateur,
             Role = utilisateur.Role,
+            PaysAgence = utilisateur.PaysAgence,
+            IsActif = utilisateur.IsActif,
             Token = CreerToken(utilisateur)
         };
     }
@@ -146,14 +162,15 @@ public class AuthController : ControllerBase
     private string CreerToken(AppUtilisateur utilisateur)
     {
         var jwtKey = _configuration["Jwt:Key"]
-            ?? throw new InvalidOperationException("La clé JWT est manquante.");
+            ?? throw new InvalidOperationException("La cle JWT est manquante.");
 
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, utilisateur.Id.ToString()),
             new Claim(ClaimTypes.Name, utilisateur.NomUtilisateur),
             new Claim(ClaimTypes.Role, utilisateur.Role),
-            new Claim("nom_complet", utilisateur.NomComplet)
+            new Claim("nom_complet", utilisateur.NomComplet),
+            new Claim("pays_agence", utilisateur.PaysAgence)
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));

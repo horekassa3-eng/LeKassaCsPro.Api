@@ -6,4 +6,5 @@ public class CreerUtilisateurRequest
     public string NomUtilisateur { get; set; } = string.Empty;
     public string MotDePasse { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    public string PaysAgence { get; set; } = "Senegal";
 }
