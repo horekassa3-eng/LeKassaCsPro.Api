@@ -26,12 +26,18 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
     [HttpGet("pays/{pays}")]
     public async Task<ActionResult<List<AppSoldeAgenceMouvement>>> GetByPaysAsync(string pays)
     {
+        var paysNormalise = NormaliserTexte(pays);
+
         var mouvements = await context.SoldeAgenceMouvements
-            .Where(m => m.IsActive
-                        && (m.PaysAgence == pays || m.Pays == pays))
+            .Where(m => m.IsActive)
             .OrderByDescending(m => m.DateMouvement)
             .ThenByDescending(m => m.Id)
             .ToListAsync();
+
+        mouvements = mouvements
+            .Where(m => NormaliserTexte(m.PaysAgence) == paysNormalise
+                        || NormaliserTexte(m.Pays) == paysNormalise)
+            .ToList();
 
         return Ok(mouvements);
     }
@@ -132,13 +138,20 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
 
     private async Task<decimal> GetSoldeAgenceAsync(string pays, string moyen, string devise)
     {
+        var paysNormalise = NormaliserTexte(pays);
+        var moyenNormalise = (moyen ?? string.Empty).Trim();
+        var deviseNormalise = (devise ?? string.Empty).Trim();
+
         var mouvements = await context.SoldeAgenceMouvements
             .Where(m => m.IsActive
-            && (NormaliserTexte(m.PaysAgence) == NormaliserTexte(pays)
-                || NormaliserTexte(m.Pays) == NormaliserTexte(pays))
-            && m.Moyen == moyen
-            && m.Devise == devise)
+                        && m.Moyen == moyenNormalise
+                        && m.Devise == deviseNormalise)
             .ToListAsync();
+
+        mouvements = mouvements
+            .Where(m => NormaliserTexte(m.PaysAgence) == paysNormalise
+                        || NormaliserTexte(m.Pays) == paysNormalise)
+            .ToList();
 
         var entrees = mouvements
             .Where(m => EstEntree(m.TypeMouvement))
@@ -189,7 +202,8 @@ public class SoldeAgenceMouvementController(AppDbContext context) : ControllerBa
             .Replace("ê", "e")
             .Replace("ë", "e")
             .Replace("ï", "i")
-            .Replace("î", "i");
+            .Replace("î", "i")
+            .Replace("ç", "c");
     }
 
     private static DateTime NormaliserDateUtc(DateTime date)
