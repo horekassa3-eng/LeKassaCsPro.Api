@@ -36,52 +36,60 @@ public class TauxChangeController(AppDbContext context) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<AppTauxChange>> SaveAsync(AppTauxChange request)
     {
-        if (request.MontantReferenceFcfa <= 0 || request.MontantEquivalentGnf <= 0)
-            return BadRequest("Le montant référence et le montant équivalent sont obligatoires.");
-
-        if (request.FraisFournisseurPour5000Fcfa < 0)
-            return BadRequest("Les frais fournisseur ne peuvent pas être négatifs.");
-
-        if (request.FraisPartenairePour5000Fcfa < 0)
-            return BadRequest("Les frais partenaire ne peuvent pas être négatifs.");
-
-        request.TauxGnfParFcfa = request.MontantEquivalentGnf / request.MontantReferenceFcfa;
-        request.FraisPartenairePour5000Fcfa = request.FraisPartenairePour5000Fcfa > 0
-            ? request.FraisPartenairePour5000Fcfa
-            : request.FraisFournisseurPour5000Fcfa;
-        request.IsActive = true;
-
-        if (request.IsActif)
-            await DesactiverAutresTauxAsync(request.Id);
-
-        if (request.Id == 0)
+        try
         {
-            context.TauxChanges.Add(request);
+            if (request.MontantReferenceFcfa <= 0 || request.MontantEquivalentGnf <= 0)
+                return BadRequest("Le montant référence et le montant équivalent sont obligatoires.");
+
+            if (request.FraisFournisseurPour5000Fcfa < 0)
+                return BadRequest("Les frais fournisseur ne peuvent pas être négatifs.");
+
+            if (request.FraisPartenairePour5000Fcfa < 0)
+                return BadRequest("Les frais partenaire ne peuvent pas être négatifs.");
+
+            request.DateTaux = NormaliserDateUtc(request.DateTaux);
+            request.TauxGnfParFcfa = request.MontantEquivalentGnf / request.MontantReferenceFcfa;
+            request.FraisPartenairePour5000Fcfa = request.FraisPartenairePour5000Fcfa > 0
+                ? request.FraisPartenairePour5000Fcfa
+                : request.FraisFournisseurPour5000Fcfa;
+            request.IsActive = true;
+
+            if (request.IsActif)
+                await DesactiverAutresTauxAsync(request.Id);
+
+            if (request.Id == 0)
+            {
+                context.TauxChanges.Add(request);
+                await context.SaveChangesAsync();
+
+                return Ok(request);
+            }
+
+            var taux = await context.TauxChanges
+                .FirstOrDefaultAsync(t => t.Id == request.Id);
+
+            if (taux == null)
+                return NotFound();
+
+            taux.DateTaux = request.DateTaux;
+            taux.MontantReferenceFcfa = request.MontantReferenceFcfa;
+            taux.MontantEquivalentGnf = request.MontantEquivalentGnf;
+            taux.TauxGnfParFcfa = request.TauxGnfParFcfa;
+            taux.FraisServiceSnGnPourcentage = request.FraisServiceSnGnPourcentage;
+            taux.FraisServiceGnSnPourcentage = request.FraisServiceGnSnPourcentage;
+            taux.FraisFournisseurPour5000Fcfa = request.FraisFournisseurPour5000Fcfa;
+            taux.FraisPartenairePour5000Fcfa = request.FraisPartenairePour5000Fcfa;
+            taux.IsActif = request.IsActif;
+            taux.IsActive = true;
+
             await context.SaveChangesAsync();
 
-            return Ok(request);
+            return Ok(taux);
         }
-
-        var taux = await context.TauxChanges
-            .FirstOrDefaultAsync(t => t.Id == request.Id);
-
-        if (taux == null)
-            return NotFound();
-
-        taux.DateTaux = request.DateTaux;
-        taux.MontantReferenceFcfa = request.MontantReferenceFcfa;
-        taux.MontantEquivalentGnf = request.MontantEquivalentGnf;
-        taux.TauxGnfParFcfa = request.TauxGnfParFcfa;
-        taux.FraisServiceSnGnPourcentage = request.FraisServiceSnGnPourcentage;
-        taux.FraisServiceGnSnPourcentage = request.FraisServiceGnSnPourcentage;
-        taux.FraisFournisseurPour5000Fcfa = request.FraisFournisseurPour5000Fcfa;
-        taux.FraisPartenairePour5000Fcfa = request.FraisPartenairePour5000Fcfa;
-        taux.IsActif = request.IsActif;
-        taux.IsActive = true;
-
-        await context.SaveChangesAsync();
-
-        return Ok(taux);
+        catch (Exception ex)
+        {
+            return BadRequest($"Erreur serveur taux change : {LireMessageErreur(ex)}");
+        }
     }
 
     [HttpPut("{id:int}/actif")]
@@ -126,5 +134,27 @@ public class TauxChangeController(AppDbContext context) : ControllerBase
 
         foreach (var ancien in anciens)
             ancien.IsActif = false;
+    }
+
+    private static DateTime NormaliserDateUtc(DateTime date)
+    {
+        if (date == default)
+            return DateTime.UtcNow;
+
+        if (date.Kind == DateTimeKind.Utc)
+            return date;
+
+        if (date.Kind == DateTimeKind.Local)
+            return date.ToUniversalTime();
+
+        return DateTime.SpecifyKind(date, DateTimeKind.Utc);
+    }
+
+    private static string LireMessageErreur(Exception exception)
+    {
+        var message = exception.InnerException?.Message ?? exception.Message;
+        return string.IsNullOrWhiteSpace(message)
+            ? "Erreur inconnue."
+            : message;
     }
 }
