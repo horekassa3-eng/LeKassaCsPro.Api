@@ -55,6 +55,8 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
         var composantsSaisis = request.ValeurMarchandise > 0
                                || request.ArgentLiquide > 0
                                || request.DetteClient > 0
+                               || request.DepensesBoutiquier > 0
+                               || request.DepensesGerant > 0
                                || request.Depot > 0;
 
         if (composantsSaisis)
@@ -90,6 +92,8 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
         inventaire.ValeurMarchandise = request.ValeurMarchandise;
         inventaire.ArgentLiquide = request.ArgentLiquide;
         inventaire.DetteClient = request.DetteClient;
+        inventaire.DepensesBoutiquier = request.DepensesBoutiquier;
+        inventaire.DepensesGerant = request.DepensesGerant;
         inventaire.Depot = request.Depot;
         inventaire.GainMois = request.GainMois;
         inventaire.DepenseProprietaireMois = request.DepenseProprietaireMois;
@@ -126,6 +130,8 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
         return inventaire.ValeurMarchandise
                + inventaire.ArgentLiquide
                + inventaire.DetteClient
+               + inventaire.DepensesBoutiquier
+               + inventaire.DepensesGerant
                - inventaire.Depot;
     }
 

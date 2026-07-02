@@ -10,7 +10,7 @@ public class AppBoutiqueInventaire
 
     public DateTime DateInventaire { get; set; } = DateTime.UtcNow;
 
-    // Total actuel = valeur marchandise + argent liquide + dette client - dépôt.
+    // Total actuel = valeur marchandise + argent liquide + dette client + dépenses - dépôt.
     public decimal ValeurStock { get; set; }
 
     public decimal ValeurMarchandise { get; set; }
@@ -18,6 +18,10 @@ public class AppBoutiqueInventaire
     public decimal ArgentLiquide { get; set; }
 
     public decimal DetteClient { get; set; }
+
+    public decimal DepensesBoutiquier { get; set; }
+
+    public decimal DepensesGerant { get; set; }
 
     public decimal Depot { get; set; }
 
