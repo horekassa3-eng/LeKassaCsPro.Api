@@ -12,4 +12,5 @@ public class AppTauxChange
     public decimal FraisServiceSnGnPourcentage { get; set; } = 1m;
     public decimal FraisServiceGnSnPourcentage { get; set; } = 1m;
     public decimal FraisFournisseurPour5000Fcfa { get; set; }
+    public decimal FraisPartenairePour5000Fcfa { get; set; }
 }

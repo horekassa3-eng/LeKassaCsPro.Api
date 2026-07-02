@@ -34,50 +34,54 @@ public class TauxChangeController(AppDbContext context) : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<AppTauxChange>> SaveAsync([FromBody] AppTauxChange request)
+    public async Task<ActionResult<AppTauxChange>> SaveAsync(AppTauxChange request)
     {
         if (request.MontantReferenceFcfa <= 0 || request.MontantEquivalentGnf <= 0)
             return BadRequest("Le montant référence et le montant équivalent sont obligatoires.");
 
-        request.DateTaux = NormaliserDateUtc(request.DateTaux);
-        request.TauxGnfParFcfa = request.MontantEquivalentGnf / request.MontantReferenceFcfa;
-        request.IsActive = true;
-
-        if (request.FraisServiceSnGnPourcentage < 0)
-            request.FraisServiceSnGnPourcentage = 0;
-
-        if (request.FraisServiceGnSnPourcentage < 0)
-            request.FraisServiceGnSnPourcentage = 0;
-
         if (request.FraisFournisseurPour5000Fcfa < 0)
-            request.FraisFournisseurPour5000Fcfa = 0;
+            return BadRequest("Les frais fournisseur ne peuvent pas être négatifs.");
+
+        if (request.FraisPartenairePour5000Fcfa < 0)
+            return BadRequest("Les frais partenaire ne peuvent pas être négatifs.");
+
+        request.TauxGnfParFcfa = request.MontantEquivalentGnf / request.MontantReferenceFcfa;
+        request.FraisPartenairePour5000Fcfa = request.FraisPartenairePour5000Fcfa > 0
+            ? request.FraisPartenairePour5000Fcfa
+            : request.FraisFournisseurPour5000Fcfa;
+        request.IsActive = true;
 
         if (request.IsActif)
             await DesactiverAutresTauxAsync(request.Id);
 
+        AppTauxChange taux;
+
         if (request.Id == 0)
         {
-            context.TauxChanges.Add(request);
-            await context.SaveChangesAsync();
-
-            return Ok(request);
+            taux = request;
+            context.TauxChanges.Add(taux);
         }
+        else
+        {
+            var tauxExistant = await context.TauxChanges
+                .FirstOrDefaultAsync(t => t.Id == request.Id);
 
-        var taux = await context.TauxChanges
-            .FirstOrDefaultAsync(t => t.Id == request.Id);
+            if (tauxExistant is null)
+                return NotFound();
 
-        if (taux == null)
-            return NotFound();
+            tauxExistant.DateTaux = request.DateTaux;
+            tauxExistant.MontantReferenceFcfa = request.MontantReferenceFcfa;
+            tauxExistant.MontantEquivalentGnf = request.MontantEquivalentGnf;
+            tauxExistant.TauxGnfParFcfa = request.TauxGnfParFcfa;
+            tauxExistant.FraisServiceSnGnPourcentage = request.FraisServiceSnGnPourcentage;
+            tauxExistant.FraisServiceGnSnPourcentage = request.FraisServiceGnSnPourcentage;
+            tauxExistant.FraisFournisseurPour5000Fcfa = request.FraisFournisseurPour5000Fcfa;
+            tauxExistant.FraisPartenairePour5000Fcfa = request.FraisPartenairePour5000Fcfa;
+            tauxExistant.IsActif = request.IsActif;
+            tauxExistant.IsActive = true;
 
-        taux.DateTaux = request.DateTaux;
-        taux.MontantReferenceFcfa = request.MontantReferenceFcfa;
-        taux.MontantEquivalentGnf = request.MontantEquivalentGnf;
-        taux.TauxGnfParFcfa = request.TauxGnfParFcfa;
-        taux.FraisServiceSnGnPourcentage = request.FraisServiceSnGnPourcentage;
-        taux.FraisServiceGnSnPourcentage = request.FraisServiceGnSnPourcentage;
-        taux.FraisFournisseurPour5000Fcfa = request.FraisFournisseurPour5000Fcfa;
-        taux.IsActif = request.IsActif;
-        taux.IsActive = true;
+            taux = tauxExistant;
+        }
 
         await context.SaveChangesAsync();
 
@@ -90,12 +94,12 @@ public class TauxChangeController(AppDbContext context) : ControllerBase
         var taux = await context.TauxChanges
             .FirstOrDefaultAsync(t => t.Id == id && t.IsActive);
 
-        if (taux == null)
+        if (taux is null)
             return NotFound();
 
         await DesactiverAutresTauxAsync(id);
-
         taux.IsActif = true;
+
         await context.SaveChangesAsync();
 
         return Ok(taux);
@@ -107,7 +111,7 @@ public class TauxChangeController(AppDbContext context) : ControllerBase
         var taux = await context.TauxChanges
             .FirstOrDefaultAsync(t => t.Id == id && t.IsActive);
 
-        if (taux == null)
+        if (taux is null)
             return NotFound();
 
         taux.IsActive = false;
@@ -126,13 +130,5 @@ public class TauxChangeController(AppDbContext context) : ControllerBase
 
         foreach (var ancien in anciens)
             ancien.IsActif = false;
-    }
-
-    private static DateTime NormaliserDateUtc(DateTime date)
-    {
-        if (date == default)
-            date = DateTime.UtcNow;
-
-        return DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
     }
 }
