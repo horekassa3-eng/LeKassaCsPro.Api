@@ -13,10 +13,8 @@ public class BoutiqueController(AppDbContext context) : ControllerBase
     public async Task<ActionResult<List<AppBoutique>>> GetAllAsync()
     {
         var boutiques = await context.Boutiques
-            .AsNoTracking()
             .Where(b => b.IsActive)
             .OrderBy(b => b.Nom)
-            .ThenBy(b => b.Id)
             .ToListAsync();
 
         return Ok(boutiques);
@@ -26,7 +24,6 @@ public class BoutiqueController(AppDbContext context) : ControllerBase
     public async Task<ActionResult<AppBoutique>> GetByIdAsync(int id)
     {
         var boutique = await context.Boutiques
-            .AsNoTracking()
             .FirstOrDefaultAsync(b => b.Id == id && b.IsActive);
 
         if (boutique == null)
@@ -36,52 +33,56 @@ public class BoutiqueController(AppDbContext context) : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<AppBoutique>> CreateAsync(AppBoutique boutique)
+    public async Task<ActionResult<AppBoutique>> SaveAsync([FromBody] AppBoutique request)
     {
-        boutique.Id = 0;
-        NettoyerBoutique(boutique);
-        boutique.IsActive = true;
-        boutique.DateCreation = DateTime.UtcNow;
-        boutique.DateModification = DateTime.UtcNow;
+        if (string.IsNullOrWhiteSpace(request.Nom))
+            return BadRequest("Le nom de la boutique est obligatoire.");
 
-        context.Boutiques.Add(boutique);
-        await context.SaveChangesAsync();
+        if (request.Id == 0)
+        {
+            request.Nom = request.Nom.Trim();
+            request.IsActive = true;
+            request.DateCreation = DateTime.UtcNow;
+            request.DateModification = DateTime.UtcNow;
 
-        return CreatedAtAction(nameof(GetByIdAsync), new { id = boutique.Id }, boutique);
-    }
+            context.Boutiques.Add(request);
+            await context.SaveChangesAsync();
 
-    [HttpPut("{id:int}")]
-    public async Task<ActionResult<AppBoutique>> UpdateAsync(int id, AppBoutique request)
-    {
-        var boutique = await context.Boutiques.FirstOrDefaultAsync(b => b.Id == id);
+            return Ok(request);
+        }
+
+        var boutique = await context.Boutiques
+            .FirstOrDefaultAsync(b => b.Id == request.Id && b.IsActive);
 
         if (boutique == null)
             return NotFound();
 
-        boutique.Nom = request.Nom?.Trim() ?? string.Empty;
+        boutique.Nom = request.Nom.Trim();
         boutique.Pays = request.Pays?.Trim() ?? string.Empty;
         boutique.Ville = request.Ville?.Trim() ?? string.Empty;
-        boutique.Adresse = request.Adresse?.Trim() ?? string.Empty;
-        boutique.DateOuverture = NormaliserDateUtc(request.DateOuverture);
-        boutique.BudgetInitial = request.BudgetInitial;
-        boutique.GerantUtilisateurId = request.GerantUtilisateurId;
         boutique.GerantNom = request.GerantNom?.Trim() ?? string.Empty;
         boutique.GerantTelephone = request.GerantTelephone?.Trim() ?? string.Empty;
-        boutique.AssistantUtilisateurId = request.AssistantUtilisateurId;
         boutique.AssistantNom = request.AssistantNom?.Trim() ?? string.Empty;
         boutique.AssistantTelephone = request.AssistantTelephone?.Trim() ?? string.Empty;
-        boutique.Observation = request.Observation?.Trim() ?? string.Empty;
-        boutique.IsActive = request.IsActive;
+        boutique.BudgetInitial = request.BudgetInitial;
+        boutique.DateOuverture = NormaliserDateUtc(request.DateOuverture);
+        boutique.GerantUtilisateurId = request.GerantUtilisateurId;
+        boutique.AssistantUtilisateurId = request.AssistantUtilisateurId;
+        boutique.UtilisateurId = request.UtilisateurId;
+        boutique.UtilisateurNom = request.UtilisateurNom?.Trim() ?? string.Empty;
+        boutique.RoleUtilisateur = request.RoleUtilisateur?.Trim() ?? string.Empty;
         boutique.DateModification = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+
         return Ok(boutique);
     }
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> DeleteAsync(int id)
     {
-        var boutique = await context.Boutiques.FirstOrDefaultAsync(b => b.Id == id);
+        var boutique = await context.Boutiques
+            .FirstOrDefaultAsync(b => b.Id == id && b.IsActive);
 
         if (boutique == null)
             return NotFound();
@@ -90,23 +91,8 @@ public class BoutiqueController(AppDbContext context) : ControllerBase
         boutique.DateModification = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
-        return NoContent();
-    }
 
-    private static void NettoyerBoutique(AppBoutique boutique)
-    {
-        boutique.Nom = boutique.Nom?.Trim() ?? string.Empty;
-        boutique.Pays = boutique.Pays?.Trim() ?? string.Empty;
-        boutique.Ville = boutique.Ville?.Trim() ?? string.Empty;
-        boutique.Adresse = boutique.Adresse?.Trim() ?? string.Empty;
-        boutique.DateOuverture = NormaliserDateUtc(boutique.DateOuverture);
-        boutique.GerantNom = boutique.GerantNom?.Trim() ?? string.Empty;
-        boutique.GerantTelephone = boutique.GerantTelephone?.Trim() ?? string.Empty;
-        boutique.AssistantNom = boutique.AssistantNom?.Trim() ?? string.Empty;
-        boutique.AssistantTelephone = boutique.AssistantTelephone?.Trim() ?? string.Empty;
-        boutique.Observation = boutique.Observation?.Trim() ?? string.Empty;
-        boutique.UtilisateurNom = boutique.UtilisateurNom?.Trim() ?? string.Empty;
-        boutique.RoleUtilisateur = boutique.RoleUtilisateur?.Trim() ?? string.Empty;
+        return NoContent();
     }
 
     private static DateTime NormaliserDateUtc(DateTime date)
