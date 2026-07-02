@@ -8,9 +8,18 @@ public class AppBoutiqueInventaire
 
     public string BoutiqueNom { get; set; } = string.Empty;
 
-    public DateTime DateInventaire { get; set; }
+    public DateTime DateInventaire { get; set; } = DateTime.UtcNow;
 
+    // Total actuel = valeur marchandise + argent liquide + dette client - dépôt.
     public decimal ValeurStock { get; set; }
+
+    public decimal ValeurMarchandise { get; set; }
+
+    public decimal ArgentLiquide { get; set; }
+
+    public decimal DetteClient { get; set; }
+
+    public decimal Depot { get; set; }
 
     public decimal GainMois { get; set; }
 
@@ -22,9 +31,9 @@ public class AppBoutiqueInventaire
 
     public int UtilisateurId { get; set; }
 
-    public string UtilisateurNom { get; set; } = string.Empty;
+    public string UtilisateurNom { get; set; } = "Utilisateur local";
 
-    public string RoleUtilisateur { get; set; } = string.Empty;
+    public string RoleUtilisateur { get; set; } = "Caissier";
 
     public DateTime? DateCreation { get; set; }
 

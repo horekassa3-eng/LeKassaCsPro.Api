@@ -21,18 +21,6 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
         return Ok(inventaires);
     }
 
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<AppBoutiqueInventaire>> GetByIdAsync(int id)
-    {
-        var inventaire = await context.BoutiqueInventaires
-            .FirstOrDefaultAsync(i => i.Id == id && i.IsActive);
-
-        if (inventaire == null)
-            return NotFound();
-
-        return Ok(inventaire);
-    }
-
     [HttpGet("boutique/{boutiqueId:int}")]
     public async Task<ActionResult<List<AppBoutiqueInventaire>>> GetByBoutiqueAsync(int boutiqueId)
     {
@@ -45,7 +33,7 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
         return Ok(inventaires);
     }
 
-    [HttpGet("dernier/{boutiqueId:int}")]
+    [HttpGet("boutique/{boutiqueId:int}/dernier")]
     public async Task<ActionResult<AppBoutiqueInventaire?>> GetDernierAsync(int boutiqueId)
     {
         var inventaire = await context.BoutiqueInventaires
@@ -54,56 +42,55 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
             .ThenByDescending(i => i.Id)
             .FirstOrDefaultAsync();
 
-        if (inventaire == null)
-            return NotFound();
-
         return Ok(inventaire);
     }
 
     [HttpPost]
-    public async Task<ActionResult<AppBoutiqueInventaire>> CreateAsync(AppBoutiqueInventaire inventaire)
+    public async Task<ActionResult<AppBoutiqueInventaire>> SaveAsync([FromBody] AppBoutiqueInventaire request)
     {
-        if (inventaire.BoutiqueId <= 0)
-            return BadRequest("Boutique obligatoire.");
+        if (request.BoutiqueId <= 0)
+            return BadRequest("La boutique est obligatoire.");
 
-        if (inventaire.ValeurStock <= 0)
-            return BadRequest("Chiffre actuel obligatoire.");
+        var totalComposants = CalculerTotalActuel(request);
+        var composantsSaisis = request.ValeurMarchandise > 0
+                               || request.ArgentLiquide > 0
+                               || request.DetteClient > 0
+                               || request.Depot > 0;
 
-        inventaire.Id = 0;
-        inventaire.BoutiqueNom = inventaire.BoutiqueNom?.Trim() ?? string.Empty;
-        inventaire.Observation = inventaire.Observation?.Trim() ?? string.Empty;
-        inventaire.UtilisateurNom = inventaire.UtilisateurNom?.Trim() ?? string.Empty;
-        inventaire.RoleUtilisateur = inventaire.RoleUtilisateur?.Trim() ?? string.Empty;
-        inventaire.DateInventaire = NormaliserDateUtc(inventaire.DateInventaire);
-        inventaire.DateCreation = DateTime.UtcNow;
-        inventaire.DateModification = DateTime.UtcNow;
-        inventaire.IsActive = true;
+        if (composantsSaisis)
+            request.ValeurStock = totalComposants;
 
-        context.BoutiqueInventaires.Add(inventaire);
-        await context.SaveChangesAsync();
+        if (request.ValeurStock <= 0)
+            return BadRequest("Le total actuel doit être supérieur à 0.");
 
-        return Ok(inventaire);
-    }
+        request.DateInventaire = NormaliserDateUtc(request.DateInventaire);
 
-    [HttpPut("{id:int}")]
-    public async Task<ActionResult<AppBoutiqueInventaire>> UpdateAsync(int id, AppBoutiqueInventaire request)
-    {
+        if (request.Id == 0)
+        {
+            request.IsActive = true;
+            request.DateCreation = DateTime.UtcNow;
+            request.DateModification = DateTime.UtcNow;
+
+            context.BoutiqueInventaires.Add(request);
+            await context.SaveChangesAsync();
+
+            return Ok(request);
+        }
+
         var inventaire = await context.BoutiqueInventaires
-            .FirstOrDefaultAsync(i => i.Id == id && i.IsActive);
+            .FirstOrDefaultAsync(i => i.Id == request.Id && i.IsActive);
 
         if (inventaire == null)
             return NotFound();
 
-        if (request.BoutiqueId <= 0)
-            return BadRequest("Boutique obligatoire.");
-
-        if (request.ValeurStock <= 0)
-            return BadRequest("Chiffre actuel obligatoire.");
-
         inventaire.BoutiqueId = request.BoutiqueId;
         inventaire.BoutiqueNom = request.BoutiqueNom?.Trim() ?? string.Empty;
-        inventaire.DateInventaire = NormaliserDateUtc(request.DateInventaire);
+        inventaire.DateInventaire = request.DateInventaire;
         inventaire.ValeurStock = request.ValeurStock;
+        inventaire.ValeurMarchandise = request.ValeurMarchandise;
+        inventaire.ArgentLiquide = request.ArgentLiquide;
+        inventaire.DetteClient = request.DetteClient;
+        inventaire.Depot = request.Depot;
         inventaire.GainMois = request.GainMois;
         inventaire.DepenseProprietaireMois = request.DepenseProprietaireMois;
         inventaire.Observation = request.Observation?.Trim() ?? string.Empty;
@@ -132,6 +119,14 @@ public class BoutiqueInventaireController(AppDbContext context) : ControllerBase
         await context.SaveChangesAsync();
 
         return NoContent();
+    }
+
+    private static decimal CalculerTotalActuel(AppBoutiqueInventaire inventaire)
+    {
+        return inventaire.ValeurMarchandise
+               + inventaire.ArgentLiquide
+               + inventaire.DetteClient
+               - inventaire.Depot;
     }
 
     private static DateTime NormaliserDateUtc(DateTime date)
